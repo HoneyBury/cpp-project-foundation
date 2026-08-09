@@ -57,10 +57,11 @@ jobs:
         working-directory: ${{ inputs.project-directory }}
         run: |
           python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
           conan install . --profile:host "${{ inputs.conan-profile }}" \
             --profile:build "${{ inputs.conan-profile }}" \
             --lockfile "${{ inputs.conan-lockfile }}" \
-            --output-folder=build/conan --build=never --no-remote
+            --output-folder=build/conan --build=missing
           cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/release --parallel --target "${{ inputs.cmake-target }}"

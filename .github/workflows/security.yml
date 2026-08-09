@@ -44,6 +44,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang ninja-build
           python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
           conan install . --profile:host conan/profiles/linux-gcc-x64 \
             --profile:build conan/profiles/linux-gcc-x64 \
@@ -75,6 +76,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang ninja-build
           python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
           conan install . --profile:host conan/profiles/linux-gcc-x64 \
             --profile:build conan/profiles/linux-gcc-x64 \
@@ -101,6 +103,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang ninja-build
           python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
           conan install . --profile:host conan/profiles/linux-gcc-x64 \
             --profile:build conan/profiles/linux-gcc-x64 \

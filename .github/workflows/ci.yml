@@ -48,6 +48,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-13 g++-13 ninja-build sccache
           python3 scripts/ensure_conan.py --venv "$CONAN_VENV" --version 2.8.1
+          export PATH="$CONAN_VENV/bin:$PATH"
+          conan remote add conancenter https://center2.conan.io --force
           echo "$CONAN_VENV/bin" >> "$GITHUB_PATH"
           python3 -m pip install -e .
 
