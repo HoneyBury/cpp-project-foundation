@@ -1,0 +1,63 @@
+name: Security / CodeQL C++
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "29 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: foundation-codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  codeql-cpp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.conan2-codeql
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          languages: c-cpp
+          build-mode: manual
+      - name: Install build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 ninja-build
+          python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
+      - name: Resolve and build analyzed targets
+        working-directory: examples/hello-service
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          conan install . \
+            --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan-codeql --build=missing
+          cmake -S . -B build/codeql -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-codeql/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/codeql --parallel 2 \
+            --target hello_service hello_service_tests
+      - name: Analyze
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:c-cpp

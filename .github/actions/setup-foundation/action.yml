@@ -5,6 +5,9 @@ inputs:
   python-version:
     description: Python version provisioned by the caller.
     default: "3.12"
+  install-quality-tools:
+    description: Install the pinned source-quality toolset.
+    default: "false"
 
 runs:
   using: composite
@@ -17,3 +20,15 @@ runs:
         python3 -m venv "$venv"
         "$venv/bin/pip" install --disable-pip-version-check "$GITHUB_ACTION_PATH/../../.."
         echo "$venv/bin" >> "$GITHUB_PATH"
+    - name: Install quality tools
+      if: inputs.install-quality-tools == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        quality_venv="$RUNNER_TEMP/cpp-project-foundation-quality-${{ inputs.python-version }}"
+        tools="$RUNNER_TEMP/cpp-project-foundation-tools"
+        python3 "$GITHUB_ACTION_PATH/../../../scripts/install_quality_tools.py" \
+          --venv "$quality_venv" --tools-dir "$tools"
+        echo "$quality_venv/bin" >> "$GITHUB_PATH"
+        echo "$tools/bin" >> "$GITHUB_PATH"
+        echo "$tools/npm/node_modules/.bin" >> "$GITHUB_PATH"

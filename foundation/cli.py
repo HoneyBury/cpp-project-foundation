@@ -21,7 +21,9 @@ from .operations import (
     verify_backup,
 )
 from .provenance import build_provenance
+from .quality import run_quality
 from .release import package_release, verify_release
+from .sbom import conan_lock_to_spdx
 from .scaffold import initialize_project
 
 
@@ -140,6 +142,13 @@ def build_parser() -> argparse.ArgumentParser:
     perf.add_argument("--minimum-ops-per-second", type=float, required=True)
     perf.add_argument("--maximum-p99-ms", type=float, required=True)
     perf.add_argument("--output", type=Path, required=True)
+    quality = sub.add_parser("quality")
+    quality.add_argument("--root", type=Path, default=Path("."))
+    quality.add_argument("--mode", choices=("fast", "deep"), default="fast")
+    quality.add_argument("--fix", action="store_true")
+    dependency_sbom = sub.add_parser("dependency-sbom")
+    dependency_sbom.add_argument("--lockfile", type=Path, required=True)
+    dependency_sbom.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -248,6 +257,10 @@ def execute(args: argparse.Namespace) -> Any:
             minimum_ops_per_second=args.minimum_ops_per_second,
             maximum_p99_ms=args.maximum_p99_ms,
         )
+    if args.command == "quality":
+        return run_quality(args.root, args.mode, args.fix)
+    if args.command == "dependency-sbom":
+        return conan_lock_to_spdx(args.lockfile, args.output)
     raise FoundationError(f"unsupported command: {args.command}")
 
 

@@ -1,5 +1,16 @@
 # Architecture
 
+## Quality pipeline
+
+The fast path runs deterministic source checks, GCC/Clang compilation, clang-tidy and
+coverage on pull requests. The security path builds CodeQL manually with the locked Conan
+graph and scans a generated SPDX/PURL dependency inventory. The scheduled deep path runs
+IWYU, cppcheck, Dockerfile/documentation checks and build artifact budgets.
+
+All quality settings are repository-owned inputs. Generated projects receive the same
+configuration files and may change budgets explicitly; workflows never derive a weaker
+threshold from an observed result.
+
 ```text
 generated C++ project
   foundation.toml

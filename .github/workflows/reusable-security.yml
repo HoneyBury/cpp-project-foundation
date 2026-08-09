@@ -30,15 +30,21 @@ jobs:
       CONAN_HOME: ${{ github.workspace }}/.conan2-security
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Setup foundation CLI
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
+      - name: Generate scan-ready Conan SBOM
+        working-directory: ${{ inputs.project-directory }}
+        run: |
+          cpp-foundation dependency-sbom --lockfile "${{ inputs.conan-lockfile }}" \
+            --output quality/conan-dependencies.spdx.json
       - name: OSV scan
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1 # v2.5.0
         with:
           scan-args: |-
-            --recursive
-            ./
+            --sbom=${{ inputs.project-directory }}/quality/conan-dependencies.spdx.json
       - name: Install security toolchain
         run: |
           sudo apt-get update
@@ -47,6 +53,9 @@ jobs:
           conan remote add conancenter https://center2.conan.io --force
       - name: Resolve dependencies
         working-directory: ${{ inputs.project-directory }}
+        env:
+          CC: clang
+          CXX: clang++
         run: |
           conan install . --profile:host "${{ inputs.conan-profile }}" \
             --profile:build "${{ inputs.conan-profile }}" \
@@ -60,6 +69,7 @@ jobs:
         run: |
           CC=clang CXX=clang++ cmake -S . -B build/asan -G Ninja \
             -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
@@ -72,6 +82,7 @@ jobs:
         run: |
           CC=clang CXX=clang++ cmake -S . -B build/tsan -G Ninja \
             -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
@@ -82,6 +93,7 @@ jobs:
         run: |
           CC=clang CXX=clang++ cmake -S . -B build/fuzz -G Ninja \
             -DENABLE_TESTING=OFF -DENABLE_FUZZ=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake
           cmake --build build/fuzz --parallel 2 --target "${{ inputs.fuzz-target }}"
           mkdir -p runtime/fuzz

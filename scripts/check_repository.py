@@ -8,7 +8,6 @@ import sys
 import tomllib
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ACTION_RE = re.compile(r"^\s*uses:\s*([^#\s]+)@([^\s#]+)", re.MULTILINE)
 SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -17,15 +16,30 @@ FOUNDATION_VERSION_RE = re.compile(r"v\d+\.\d+\.\d+\Z")
 
 def main() -> int:
     errors = []
+    foundation_version = runpy.run_path(ROOT / "foundation/__init__.py")["__version__"]
+    expected_foundation_revision = f"v{foundation_version}"
     required = [
+        ".clang-format",
+        ".clang-tidy",
+        ".editorconfig",
         ".github/CODEOWNERS",
+        ".github/dependabot.yml",
         "CONTRIBUTING.md",
         "README.md",
         "README.zh-CN.md",
         "SECURITY.md",
         ".github/workflows/ci.yml",
+        ".github/workflows/codeql.yml",
+        ".github/workflows/deep-quality.yml",
+        ".github/workflows/quality.yml",
         ".github/workflows/security.yml",
         ".github/workflows/release.yml",
+        "quality/baseline.json",
+        "quality/npm/package-lock.json",
+        "quality/npm/package.json",
+        "quality/tools.json",
+        "requirements/quality.txt",
+        "ruff.toml",
     ]
     for value in required:
         if not (ROOT / value).is_file():
@@ -38,7 +52,9 @@ def main() -> int:
         path = ROOT / readme
         if path.is_file() and target not in path.read_text(encoding="utf-8"):
             errors.append(f"README language switch is missing: {readme} -> {target}")
-    workflows = sorted(ROOT.glob("**/.github/workflows/*.yml"))
+    workflows = sorted((ROOT / ".github/workflows").glob("*.yml")) + sorted(
+        (ROOT / "examples/hello-service/.github/workflows").glob("*.yml")
+    )
     for workflow in workflows:
         text = workflow.read_text(encoding="utf-8")
         if "permissions:" not in text:
@@ -49,6 +65,11 @@ def main() -> int:
             if action.startswith(
                 "HoneyBury/cpp-project-foundation/"
             ) and FOUNDATION_VERSION_RE.fullmatch(revision):
+                if revision != expected_foundation_revision:
+                    errors.append(
+                        f"foundation action is not on {expected_foundation_revision}: "
+                        f"{action}@{revision}"
+                    )
                 continue
             if SHA_RE.fullmatch(revision) is None:
                 errors.append(
@@ -60,13 +81,28 @@ def main() -> int:
             errors.append(
                 f"Python build dependency is not exactly pinned: {requirement}"
             )
+    for requirement in (
+        (ROOT / "requirements/quality.txt").read_text(encoding="utf-8").splitlines()
+    ):
+        if requirement and not requirement.startswith("#") and "==" not in requirement:
+            errors.append(f"quality dependency is not exactly pinned: {requirement}")
+    npm_package = json.loads(
+        (ROOT / "quality/npm/package.json").read_text(encoding="utf-8")
+    )
+    npm_lock = json.loads(
+        (ROOT / "quality/npm/package-lock.json").read_text(encoding="utf-8")
+    )
+    markdownlint_version = npm_package["dependencies"]["markdownlint-cli2"]
+    if (
+        npm_lock["packages"]["node_modules/markdownlint-cli2"]["version"]
+        != markdownlint_version
+    ):
+        errors.append("markdownlint-cli2 package and lock versions differ")
     manifest = tomllib.loads(
         (ROOT / "examples/hello-service/foundation.toml").read_text(encoding="utf-8")
     )
     versions = {
-        "foundation package": runpy.run_path(ROOT / "foundation/__init__.py")[
-            "__version__"
-        ],
+        "foundation package": foundation_version,
         "Python project": pyproject["project"]["version"],
         "reference manifest": manifest["project"]["version"],
     }

@@ -75,6 +75,9 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - foundation 自身的可复用 workflow 使用不可变语义版本 tag，消费者显式升级平台；
   所有第三方 Action 固定到完整 SHA
 - 候选提交、runner、构建配置和 lockfile provenance
+- 固定版本的 clang-format、Ruff、ShellCheck 和 actionlint 门禁
+- Clang 18 clang-tidy，高置信度问题按错误处理
+- CI 中所有项目自有 C++ target 执行零告警策略
 
 ### P1：不可变发布与部署
 
@@ -84,6 +87,8 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - 幂等安装、串行化部署操作、升级、回滚、状态和验证
 - 失败候选清理和自动恢复上一部署
 - 仅包含运行时的 Dockerfile、加固的 Compose、systemd 和 Prometheus/Grafana 参考配置
+- GCC 13 与 Clang 18 兼容性构建、CodeQL 和覆盖率阈值
+- 针对 Actions、Python 工具和 Docker 基础镜像的 Dependabot 策略
 
 ### P2：运维证据
 
@@ -93,11 +98,16 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - 由应用定义的外部 canary 和固定窗口聚合
 - 有界 smoke、2h 和 8h soak profile
 - 使用显式吞吐与 P99 阈值的重复性能门禁
+- 定时运行 IWYU、cppcheck、Hadolint、Markdown 和 CMake 质量检查
+- 干净构建耗时、发布二进制体积和重复构建摘要预算
 
 ## 常用命令
 
 ```bash
 cpp-foundation --manifest foundation.toml validate
+cpp-foundation quality --root . --mode deep --fix
+cpp-foundation quality --root . --mode fast
+cpp-foundation quality --root . --mode deep
 cpp-foundation --manifest foundation.toml package --output-dir dist
 cpp-foundation verify-release --archive dist/project-v0.1.0-linux-x64.tar.gz \
   --checksum dist/project-v0.1.0-linux-x64.tar.gz.sha256
@@ -109,6 +119,17 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   activate --deployment-id <deployment-id>
 ```
 
+运行本地质量命令前，安装仓库固定版本的质量工具集：
+
+```bash
+python3 scripts/install_quality_tools.py \
+  --venv .venv/quality --tools-dir .tools
+export PATH="$PWD/.venv/quality/bin:$PWD/.tools/bin:$PWD/.tools/npm/node_modules/.bin:$PATH"
+```
+
+快速质量门禁用于阻断 pull request。IWYU、cppcheck、文档、Dockerfile 和可复现性
+深度门禁按计划或手动触发运行。分析和覆盖率选项与默认 Release 构建隔离。
+
 长时间运维门禁默认不启用。普通 pull request 只运行两秒的有界稳定性 smoke。
 所有生成的 workflow 默认使用 GitHub-hosted `ubuntu-24.04` runner，2h profile 也可
 使用该默认值。启用 `overnight-8h` 前，消费项目必须显式配置已授权的 self-hosted
@@ -118,7 +139,7 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
 
 - 模板无法配置 GitHub 分支规则、runner group、environment 或 secret。首次提交到
   `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.1.1` 引用公开的
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.2.0` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。

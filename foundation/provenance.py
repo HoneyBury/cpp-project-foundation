@@ -28,6 +28,10 @@ def build_provenance(
     else:
         resolved = "unversioned"
     lockfile = manifest.root / str(manifest.build["lockfile"])
+    source_tree_status = _git(
+        manifest.root, "status", "--porcelain", "--untracked-files=normal"
+    )
+    source_tree_clean = not bool(source_tree_status)
     return {
         "schema_version": 1,
         "project": manifest.name,
@@ -35,6 +39,8 @@ def build_provenance(
         "candidate_revision": resolved,
         "git_commit": commit or "unversioned",
         "revision_matches_checkout": bool(commit and resolved == commit),
+        "source_tree_clean": source_tree_clean,
+        "source_tree_status": source_tree_status.splitlines(),
         "git_ref": os.environ.get("GITHUB_REF_NAME")
         or _git(manifest.root, "branch", "--show-current")
         or "detached",

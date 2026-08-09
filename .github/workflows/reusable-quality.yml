@@ -1,0 +1,130 @@
+name: Reusable / C++ Quality
+
+on:
+  workflow_call:
+    inputs:
+      project-directory:
+        type: string
+        default: "."
+      conan-profile:
+        type: string
+        required: true
+      conan-lockfile:
+        type: string
+        required: true
+      cmake-target:
+        type: string
+        required: true
+      test-target:
+        type: string
+        required: true
+      minimum-line-coverage:
+        type: number
+        default: 90
+      minimum-branch-coverage:
+        type: number
+        default: 80
+
+permissions:
+  contents: read
+
+jobs:
+  source-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install native linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-18 shellcheck
+      - name: Setup foundation quality tools
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
+        with:
+          install-quality-tools: "true"
+      - name: Run source-quality gate
+        run: cpp-foundation quality --root "${{ inputs.project-directory }}" --mode fast
+
+  clang-tidy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.conan2-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install analysis toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 clang-tidy-18 ninja-build
+          python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
+      - name: Analyze project
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          CC: clang-18
+          CXX: clang++-18
+        run: |
+          conan install . --profile:host "${{ inputs.conan-profile }}" \
+            --profile:build "${{ inputs.conan-profile }}" \
+            --lockfile "${{ inputs.conan-lockfile }}" \
+            --output-folder=build/conan-quality --build=missing
+          cmake -S . -B build/quality -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_CLANG_TIDY=clang-tidy-18 \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-quality/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/quality --parallel 2 \
+            --target "${{ inputs.cmake-target }}" "${{ inputs.test-target }}"
+
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.conan2-coverage
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install coverage toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 ninja-build
+          python3 -m pip install "conan==2.8.1" "gcovr==8.6"
+          conan remote add conancenter https://center2.conan.io --force
+      - name: Build test and enforce coverage
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          conan install . --profile:host "${{ inputs.conan-profile }}" \
+            --profile:build "${{ inputs.conan-profile }}" \
+            --lockfile "${{ inputs.conan-lockfile }}" \
+            --output-folder=build/conan-coverage --build=missing
+          cmake -S . -B build/coverage -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_ENABLE_COVERAGE=ON \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-coverage/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/coverage --parallel 2 --target "${{ inputs.test-target }}"
+          ctest --test-dir build/coverage --output-on-failure
+          mkdir -p runtime/coverage
+          gcovr --root . --filter 'src/' --exclude-unreachable-branches \
+            --fail-under-line "${{ inputs.minimum-line-coverage }}" \
+            --fail-under-branch "${{ inputs.minimum-branch-coverage }}" \
+            --json-summary runtime/coverage/summary.json
+      - name: Upload coverage evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cpp-coverage-${{ github.run_id }}
+          path: ${{ inputs.project-directory }}/runtime/coverage/**
+          if-no-files-found: error
