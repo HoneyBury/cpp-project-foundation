@@ -1,6 +1,15 @@
 name: Quality / Deep Engineering Gates
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/deep-quality.yml"
+      - ".github/workflows/reusable-deep-quality.yml"
+      - "examples/hello-service/CMakeLists.txt"
+      - "examples/hello-service/cmake/**"
+      - "quality/**"
+      - "foundation/build_quality.py"
   schedule:
     - cron: "41 5 * * 6"
   workflow_dispatch:
