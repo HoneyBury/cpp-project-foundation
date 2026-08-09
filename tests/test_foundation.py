@@ -144,7 +144,8 @@ class ManifestTests(unittest.TestCase):
     def test_scaffold_creates_independent_project(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             output = Path(name) / "order-service"
-            result = initialize_project("order-service", "1.2.3", output)
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                result = initialize_project("order-service", "1.2.3", output)
             self.assertTrue(result["overall_pass"])
             manifest = load_manifest(output / "foundation.toml")
             self.assertEqual(manifest.name, "order-service")
@@ -152,9 +153,17 @@ class ManifestTests(unittest.TestCase):
                 "order_service\n    VERSION 1.2.3",
                 (output / "CMakeLists.txt").read_text(),
             )
+            self.assertFalse(result["source_formatted"])
+            self.assertIn(
+                "set_target_properties(\n"
+                "    order_service PROPERTIES RUNTIME_OUTPUT_DIRECTORY",
+                (output / "CMakeLists.txt").read_text(),
+            )
             self.assertFalse((output / "build").exists())
             self.assertTrue((output / ".clang-format").is_file())
             self.assertTrue((output / ".clang-tidy").is_file())
+            self.assertTrue((output / ".gitignore").is_file())
+            self.assertTrue((output / "README.md").is_file())
             self.assertTrue((output / ".iwyu.imp").is_file())
             self.assertTrue((output / "quality/baseline.json").is_file())
             self.assertTrue((output / "ruff.toml").is_file())
@@ -164,18 +173,43 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.2.1", workflow)
+            self.assertIn("@v0.2.3", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
             ).read_text(encoding="utf-8")
             self.assertNotIn("self-hosted", operations_workflow)
+            quality_workflow = (output / ".github/workflows/quality.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(
+                "coverage-profile: conan/profiles/linux-gcc-x64", quality_workflow
+            )
             generated_text = "\n".join(
                 path.read_text(encoding="utf-8")
                 for path in output.rglob("*")
                 if path.is_file()
             )
             self.assertNotIn("hello", generated_text.lower())
+
+    def test_reusable_workflows_separate_conan_environment_and_profiles(self) -> None:
+        ci = Path(".github/workflows/reusable-cpp-ci.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "env:\n      CONAN_HOME: ${{ github.workspace }}/.conan2\n    steps:",
+            ci,
+        )
+        quality = Path(".github/workflows/reusable-quality.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("coverage-profile:", quality)
+        self.assertIn(
+            '--profile:host "${{ inputs.conan-profile }}"',
+            quality,
+        )
+        self.assertIn(
+            '--profile:host "${{ inputs.coverage-profile }}"',
+            quality,
+        )
 
 
 class ReleaseAndDeploymentTests(unittest.TestCase):

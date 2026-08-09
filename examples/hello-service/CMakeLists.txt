@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(
     hello_service
-    VERSION 0.2.1
+    VERSION 0.2.3
     LANGUAGES CXX
 )
 
@@ -28,7 +28,11 @@ set_target_properties(hello_service PROPERTIES OUTPUT_NAME hello-service)
 target_link_libraries(hello_service PRIVATE hello_core fmt::fmt)
 foundation_enable_warnings(hello_service)
 foundation_enable_coverage(hello_service)
-set_target_properties(hello_service PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+# cmake-format: off
+set_target_properties(
+    hello_service PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+# cmake-format: on
 
 if(ENABLE_TESTING)
     include(CTest)
@@ -46,7 +50,11 @@ if(ENABLE_FUZZ)
         message(FATAL_ERROR "ENABLE_FUZZ requires Clang")
     endif()
     add_executable(fuzz_request_parser fuzz/fuzz_request_parser.cpp)
-    target_compile_options(hello_core PRIVATE -fsanitize=fuzzer-no-link,address,undefined)
+    # cmake-format: off
+    target_compile_options(
+        hello_core PRIVATE -fsanitize=fuzzer-no-link,address,undefined
+    )
+    # cmake-format: on
     target_link_libraries(fuzz_request_parser PRIVATE hello_core)
     target_compile_options(fuzz_request_parser PRIVATE -fsanitize=fuzzer,address,undefined)
     target_link_options(fuzz_request_parser PRIVATE -fsanitize=fuzzer,address,undefined)
