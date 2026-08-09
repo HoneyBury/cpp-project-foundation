@@ -144,12 +144,19 @@ class ManifestTests(unittest.TestCase):
     def test_scaffold_creates_independent_project(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             output = Path(name) / "order-service"
-            result = initialize_project("order-service", "1.2.3", output)
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                result = initialize_project("order-service", "1.2.3", output)
             self.assertTrue(result["overall_pass"])
             manifest = load_manifest(output / "foundation.toml")
             self.assertEqual(manifest.name, "order-service")
             self.assertIn(
                 "order_service\n    VERSION 1.2.3",
+                (output / "CMakeLists.txt").read_text(),
+            )
+            self.assertFalse(result["source_formatted"])
+            self.assertIn(
+                "set_target_properties(\n"
+                "    order_service PROPERTIES RUNTIME_OUTPUT_DIRECTORY",
                 (output / "CMakeLists.txt").read_text(),
             )
             self.assertFalse((output / "build").exists())
@@ -166,7 +173,7 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.2.2", workflow)
+            self.assertIn("@v0.2.3", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
