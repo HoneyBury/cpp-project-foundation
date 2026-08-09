@@ -1,0 +1,102 @@
+name: Publish / PyPI Trusted Publisher
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Existing immutable GitHub release tag
+        required: true
+        type: string
+      publish:
+        description: Upload after verification; requires the PyPI trusted publisher
+        required: true
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: foundation-pypi-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout immutable release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release-tag }}
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Download and verify GitHub release wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          version=${RELEASE_TAG#v}
+          package_version=$(python3 -c \
+            'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          test "$version" = "$package_version"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "$RELEASE_TAG")"
+          mkdir -p dist
+          wheel="cpp_project_foundation-${version}-py3-none-any.whl"
+          gh release download "$RELEASE_TAG" \
+            --pattern "$wheel" --pattern "$wheel.sha256" --dir dist
+          (
+            cd dist
+            sha256sum -c "$wheel.sha256"
+          )
+      - name: Verify installed distribution
+        run: |
+          set -euo pipefail
+          python3 -m venv runtime/pypi-verify
+          runtime/pypi-verify/bin/pip install dist/*.whl
+          runtime/pypi-verify/bin/cpp-foundation init \
+            --name pypi-release-smoke --version 1.0.0 \
+            --output runtime/pypi-release-smoke
+          runtime/pypi-verify/bin/cpp-foundation --manifest foundation.toml \
+            doctor --root runtime/pypi-release-smoke
+          runtime/pypi-verify/bin/cpp-foundation --manifest foundation.toml \
+            template-diff --root runtime/pypi-release-smoke
+      - name: Stage verified Python distribution
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pypi-dist-${{ inputs.release-tag }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    if: inputs.publish
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/cpp-project-foundation
+    permissions:
+      id-token: write
+    steps:
+      - name: Download verified Python distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pypi-dist-${{ inputs.release-tag }}
+          path: dist
+      - name: Publish with PyPI trusted publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist
+          skip-existing: false
+          verbose: true
+          print-hash: true
+          attestations: true

@@ -4,11 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cpp-project-foundation"
-version = "0.3.1"
+version = "0.4.0"
 description = "Manifest-driven engineering foundation for production C++ projects"
+readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "HoneyBury"}]
+keywords = ["cpp", "cmake", "conan", "ci-cd", "devops", "scaffold"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/HoneyBury/cpp-project-foundation"
+Repository = "https://github.com/HoneyBury/cpp-project-foundation"
+Issues = "https://github.com/HoneyBury/cpp-project-foundation/issues"
+Changelog = "https://github.com/HoneyBury/cpp-project-foundation/blob/main/CHANGELOG.md"
 
 [project.scripts]
 cpp-foundation = "foundation.cli:main"
@@ -35,6 +54,9 @@ packages = ["foundation"]
 ]
 "share/cpp-project-foundation/template/.github/workflows" = [
   "examples/hello-service/.github/workflows/*.yml",
+]
+"share/cpp-project-foundation/template/.github" = [
+  "examples/hello-service/.github/dependabot.yml",
 ]
 "share/cpp-project-foundation/template/cmake" = [
   "examples/hello-service/cmake/*.cmake",

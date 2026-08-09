@@ -3,6 +3,15 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## 0.4.0 - 2026-08-10
+
+### Added
+
+- Isolated PyPI trusted-publisher dry-run and OIDC publishing workflow.
+- Complete Python package metadata for index distribution.
+- Generated consumer Dependabot policy with an Ubuntu 24.04 release-line boundary.
+- Validated operations Markdown reports in GitHub job summaries.
+
 ## 0.3.1 - 2026-08-09
 
 - Made the downloadable wheel checksum portable by recording a basename and verifying it

@@ -46,7 +46,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-format-18 shellcheck
       - name: Setup foundation quality tools
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.3.1
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.4.0
         with:
           install-quality-tools: "true"
       - name: Run deep source-quality gate
@@ -63,7 +63,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup foundation CLI
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.3.1
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.4.0
       - name: Install deep analysis toolchain
         run: |
           sudo apt-get update

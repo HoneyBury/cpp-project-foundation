@@ -35,6 +35,10 @@ def main() -> int:
         ".github/workflows/quality.yml",
         ".github/workflows/security.yml",
         ".github/workflows/release.yml",
+        ".github/workflows/publish-pypi.yml",
+        "examples/hello-service/.github/dependabot.yml",
+        "docs/publishing.md",
+        "docs/publishing.zh-CN.md",
         "quality/baseline.json",
         "quality/npm/package-lock.json",
         "quality/npm/package.json",
@@ -83,6 +87,13 @@ def main() -> int:
                     f"action is not pinned to a full SHA: {action}@{revision}"
                 )
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project_metadata = pyproject["project"]
+    if project_metadata.get("readme", {}).get("file") != "README.md":
+        errors.append("Python package README metadata is missing")
+    if project_metadata.get("license") != "MIT":
+        errors.append("Python package SPDX license metadata is missing")
+    if "Repository" not in project_metadata.get("urls", {}):
+        errors.append("Python package repository URL is missing")
     for requirement in pyproject["build-system"]["requires"]:
         if "==" not in requirement:
             errors.append(

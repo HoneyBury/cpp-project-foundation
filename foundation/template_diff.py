@@ -18,6 +18,7 @@ MANAGED_PATTERNS = (
     ".iwyu.imp",
     ".markdownlint-cli2.yaml",
     ".shellcheckrc",
+    ".github/dependabot.yml",
     "cmake/FoundationQuality.cmake",
     "conan/profiles/*",
     "quality/**/*",

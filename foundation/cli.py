@@ -24,6 +24,7 @@ from .operations import (
 from .provenance import build_provenance
 from .quality import run_quality
 from .release import package_release, verify_release
+from .reporting import render_operations_report
 from .sbom import conan_lock_to_spdx
 from .scaffold import initialize_project
 from .template_diff import compare_template
@@ -149,6 +150,13 @@ def build_parser() -> argparse.ArgumentParser:
     perf.add_argument("--minimum-ops-per-second", type=float, required=True)
     perf.add_argument("--maximum-p99-ms", type=float, required=True)
     perf.add_argument("--output", type=Path, required=True)
+    report = sub.add_parser("report")
+    report_sub = report.add_subparsers(dest="report_command", required=True)
+    report_operations = report_sub.add_parser("operations")
+    report_operations.add_argument("--soak", type=Path, required=True)
+    report_operations.add_argument("--performance", type=Path, required=True)
+    report_operations.add_argument("--output", type=Path, required=True)
+    report_operations.add_argument("--append", action="store_true")
     quality = sub.add_parser("quality")
     quality.add_argument("--root", type=Path, default=Path("."))
     quality.add_argument("--mode", choices=("fast", "deep"), default="fast")
@@ -269,6 +277,13 @@ def execute(args: argparse.Namespace) -> Any:
             repetitions=args.repetitions,
             minimum_ops_per_second=args.minimum_ops_per_second,
             maximum_p99_ms=args.maximum_p99_ms,
+        )
+    if args.command == "report":
+        return render_operations_report(
+            args.soak,
+            args.performance,
+            args.output,
+            append=args.append,
         )
     if args.command == "quality":
         return run_quality(args.root, args.mode, args.fix)
