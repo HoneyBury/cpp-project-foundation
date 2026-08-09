@@ -1,6 +1,7 @@
 .DS_Store
 .venv/
 .conan2/
+.sccache/
 .tools/
 build/
 dist/

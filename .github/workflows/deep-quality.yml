@@ -98,7 +98,7 @@ jobs:
           cmake -S . -B build/iwyu -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
-            '-DCMAKE_CXX_INCLUDE_WHAT_YOU_USE=include-what-you-use;-Xiwyu;--error=1' \
+            "-DCMAKE_CXX_INCLUDE_WHAT_YOU_USE=include-what-you-use;-Xiwyu;--error=1;-Xiwyu;--mapping_file=$PWD/.iwyu.imp" \
             -DCMAKE_TOOLCHAIN_FILE=build/conan-iwyu/build/Release/generators/conan_toolchain.cmake
           cmake --build build/iwyu --parallel 2 \
             --target hello_service hello_service_tests

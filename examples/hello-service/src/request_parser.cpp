@@ -1,6 +1,7 @@
 #include "hello/request_parser.h"
 
 #include <cstddef>
+#include <string>
 
 namespace hello {
 namespace {

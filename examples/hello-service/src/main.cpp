@@ -3,8 +3,8 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <fmt/format.h>
 #include <iostream>

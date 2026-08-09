@@ -155,6 +155,7 @@ class ManifestTests(unittest.TestCase):
             self.assertFalse((output / "build").exists())
             self.assertTrue((output / ".clang-format").is_file())
             self.assertTrue((output / ".clang-tidy").is_file())
+            self.assertTrue((output / ".iwyu.imp").is_file())
             self.assertTrue((output / "quality/baseline.json").is_file())
             self.assertTrue((output / "ruff.toml").is_file())
             self.assertTrue((output / "scripts/install_quality_tools.py").is_file())
