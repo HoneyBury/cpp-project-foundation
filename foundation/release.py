@@ -205,7 +205,9 @@ def package_release(
         provenance = build_provenance(manifest, configuration)
         if provenance["source_tree_clean"] is not True:
             paths = ", ".join(str(value) for value in provenance["source_tree_status"])
-            raise FoundationError(f"release packaging requires a clean source tree: {paths}")
+            raise FoundationError(
+                f"release packaging requires a clean source tree: {paths}"
+            )
         atomic_json(release_root / "provenance.json", provenance)
         files = _inventory(release_root)
         atomic_json(release_root / "sbom.spdx.json", _spdx(manifest, files, provenance))
