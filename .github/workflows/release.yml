@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Existing immutable tag to publish or recover
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,17 +19,31 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      FOUNDATION_RELEASE_TAG: ${{ inputs.release-tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.release-tag || github.ref }}
+      - name: Resolve release context
+        id: release-context
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit=$(git rev-parse HEAD)
+          if [[ -n "$FOUNDATION_RELEASE_TAG" ]]; then
+            tag_commit=$(git rev-list -n 1 "$FOUNDATION_RELEASE_TAG")
+            test "$commit" = "$tag_commit"
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - name: Verify release tag matches manifest
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.FOUNDATION_RELEASE_TAG != ''
         run: |
           version=$(python3 -c 'import tomllib; print(tomllib.load(open("examples/hello-service/foundation.toml", "rb"))["project"]["version"])')
-          test "$GITHUB_REF_NAME" = "v$version"
+          test "$FOUNDATION_RELEASE_TAG" = "v$version"
       - name: Build release subject
         run: |
           sudo apt-get update
@@ -44,28 +63,33 @@ jobs:
           cmake --build build/release --parallel --target hello_service hello_service_tests
           ctest --test-dir build/release --output-on-failure
       - name: Package and independently verify
+        id: package
         env:
-          FOUNDATION_CANDIDATE_REVISION: ${{ github.sha }}
+          FOUNDATION_CANDIDATE_REVISION: ${{ steps.release-context.outputs.commit }}
         run: |
           cpp-foundation --manifest examples/hello-service/foundation.toml package --output-dir dist
-          archive=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          archive=$(find "$PWD/dist" -maxdepth 1 -name '*.tar.gz' -print -quit)
+          sbom="$archive-sbom.spdx.json"
+          test -f "$archive" && test -f "$sbom"
           cpp-foundation verify-release --archive "$archive" --checksum "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "sbom=$sbom" >> "$GITHUB_OUTPUT"
       - name: Attest archive provenance
-        if: startsWith(github.ref, 'refs/tags/v') && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
+        if: env.FOUNDATION_RELEASE_TAG != '' && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
-          subject-path: dist/*.tar.gz
+          subject-path: ${{ steps.package.outputs.archive }}
       - name: Attest archive SBOM
-        if: startsWith(github.ref, 'refs/tags/v') && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
+        if: env.FOUNDATION_RELEASE_TAG != '' && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
-          subject-path: dist/*.tar.gz
-          sbom-path: dist/*-sbom.spdx.json
+          subject-path: ${{ steps.package.outputs.archive }}
+          sbom-path: ${{ steps.package.outputs.sbom }}
       - name: Publish immutable GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.FOUNDATION_RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes
+        run: gh release create "$FOUNDATION_RELEASE_TAG" dist/* --verify-tag --generate-notes
       - name: Upload release evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
