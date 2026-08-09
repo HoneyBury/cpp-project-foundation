@@ -21,12 +21,16 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+      - name: Generate scan-ready Conan SBOM
+        run: |
+          python3 scripts/conan_lock_to_spdx.py \
+            --lockfile examples/hello-service/conan/locks/linux-gcc-x64-release.lock \
+            --output quality/conan-dependencies.spdx.json
       - name: Scan dependency manifests against OSV
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1 # v2.5.0
         with:
           scan-args: |-
-            --recursive
-            ./
+            --sbom=quality/conan-dependencies.spdx.json
 
   sanitizer:
     runs-on: ubuntu-24.04
@@ -46,8 +50,8 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-gcc-x64 \
-            --profile:build conan/profiles/linux-gcc-x64 \
+          conan install . --profile:host conan/profiles/linux-clang-x64 \
+            --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing
       - name: Run ASan and UBSan tests
@@ -55,6 +59,7 @@ jobs:
         run: |
           CC=clang CXX=clang++ cmake -S . -B build/asan -G Ninja \
             -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
@@ -78,12 +83,13 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-gcc-x64 \
-            --profile:build conan/profiles/linux-gcc-x64 \
+          conan install . --profile:host conan/profiles/linux-clang-x64 \
+            --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing
           CC=clang CXX=clang++ cmake -S . -B build/tsan -G Ninja \
             -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
@@ -105,12 +111,13 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-gcc-x64 \
-            --profile:build conan/profiles/linux-gcc-x64 \
+          conan install . --profile:host conan/profiles/linux-clang-x64 \
+            --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing
           CC=clang CXX=clang++ cmake -S . -B build/fuzz -G Ninja \
             -DENABLE_TESTING=OFF -DENABLE_FUZZ=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/fuzz --parallel 2 --target fuzz_request_parser
           mkdir -p runtime/fuzz

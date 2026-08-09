@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Setup foundation CLI
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.1.1
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
       - name: Build evidence target
         working-directory: ${{ inputs.project-directory }}
         run: |
@@ -63,6 +63,7 @@ jobs:
             --lockfile "${{ inputs.conan-lockfile }}" \
             --output-folder=build/conan --build=missing
           cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/release --parallel --target "${{ inputs.cmake-target }}"
       - name: Collect evidence
@@ -84,7 +85,7 @@ jobs:
             --record-id "run-${GITHUB_RUN_ID}" --summary runtime/inputs/soak.json \
             --summary runtime/inputs/perf.json
           cpp-foundation evidence --root runtime/evidence package \
-            --output runtime/evidence-${GITHUB_RUN_ID}.tar.gz
+            --output "runtime/evidence-${GITHUB_RUN_ID}.tar.gz"
       - name: Upload evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

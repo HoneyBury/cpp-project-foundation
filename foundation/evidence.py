@@ -8,7 +8,6 @@ from typing import Any
 
 from .common import FoundationError, atomic_json, load_json, sha256_file
 
-
 VALID_KINDS = {"daily", "weekly", "incident", "final", "release", "deployment"}
 
 

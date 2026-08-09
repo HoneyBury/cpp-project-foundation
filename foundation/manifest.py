@@ -9,7 +9,6 @@ from typing import Any
 
 from .common import FoundationError, relative_path
 
-
 NAME_RE = re.compile(r"[a-z][a-z0-9-]{1,62}\Z")
 VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
 

@@ -1,0 +1,125 @@
+name: Quality / Deep Engineering Gates
+
+on:
+  schedule:
+    - cron: "41 5 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-deep-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deep-source-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install native linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-18 shellcheck
+      - name: Setup pinned foundation quality tools
+        uses: ./.github/actions/setup-foundation
+        with:
+          install-quality-tools: "true"
+      - name: Run deep source-quality gate
+        run: cpp-foundation quality --root . --mode deep
+
+  deep-cpp-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.conan2-deep-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install deep analysis toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 cppcheck gcc-13 g++-13 iwyu ninja-build time
+          python3 -m pip install "conan==2.8.1"
+          conan remote add conancenter https://center2.conan.io --force
+      - name: Configure GCC compilation database
+        working-directory: examples/hello-service
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          conan install . \
+            --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan-deep-gcc --build=missing
+          cmake -S . -B build/deep-gcc -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-deep-gcc/build/Release/generators/conan_toolchain.cmake
+      - name: Run cppcheck
+        working-directory: examples/hello-service
+        run: |
+          cppcheck --project=build/deep-gcc/compile_commands.json \
+            --enable=warning,style,performance,portability \
+            --error-exitcode=1 --inline-suppr --suppress=missingIncludeSystem
+      - name: Run include-what-you-use
+        working-directory: examples/hello-service
+        env:
+          CC: clang-18
+          CXX: clang++-18
+        run: |
+          conan install . \
+            --profile:host conan/profiles/linux-clang-x64 \
+            --profile:build conan/profiles/linux-clang-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan-iwyu --build=missing
+          cmake -S . -B build/iwyu -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            '-DCMAKE_CXX_INCLUDE_WHAT_YOU_USE=include-what-you-use;-Xiwyu;--error=1' \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-iwyu/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/iwyu --parallel 2 \
+            --target hello_service hello_service_tests
+      - name: Build twice and enforce engineering budgets
+        working-directory: examples/hello-service
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          cmake -S . -B build/repro-a -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-deep-gcc/build/Release/generators/conan_toolchain.cmake
+          mkdir -p ../../runtime/deep-quality
+          /usr/bin/time -f '%e' -o ../../runtime/deep-quality/build-seconds.txt \
+            cmake --build build/repro-a --parallel 2 --target hello_service
+          cmake -S . -B build/repro-b -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-deep-gcc/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/repro-b --parallel 2 --target hello_service
+          python3 ../../scripts/check_build_artifacts.py \
+            --baseline ../../quality/baseline.json \
+            --binary build/repro-a/bin/hello-service \
+            --rebuild-binary build/repro-b/bin/hello-service \
+            --elapsed-file ../../runtime/deep-quality/build-seconds.txt \
+            --output ../../runtime/deep-quality/summary.json
+      - name: Upload deep-quality evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: deep-quality-${{ github.run_id }}
+          path: runtime/deep-quality/**
+          if-no-files-found: error

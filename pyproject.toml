@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cpp-project-foundation"
-version = "0.1.1"
+version = "0.2.0"
 description = "Manifest-driven engineering foundation for production C++ projects"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -12,6 +12,7 @@ authors = [{name = "HoneyBury"}]
 
 [project.scripts]
 cpp-foundation = "foundation.cli:main"
+cpp-foundation-build-check = "foundation.build_quality:main"
 
 [tool.setuptools]
 packages = ["foundation"]

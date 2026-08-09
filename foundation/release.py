@@ -9,6 +9,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from . import __version__
 from .common import FoundationError, atomic_json, load_json, relative_path, sha256_file
@@ -115,6 +116,16 @@ def _spdx(
             "licenseConcluded": "NOASSERTION",
             "licenseDeclared": "NOASSERTION",
             "copyrightText": "NOASSERTION",
+            "externalRefs": [
+                {
+                    "referenceCategory": "PACKAGE-MANAGER",
+                    "referenceType": "purl",
+                    "referenceLocator": (
+                        f"pkg:conan/{quote(dependency['name'])}@"
+                        f"{quote(dependency['version'])}"
+                    ),
+                }
+            ],
         }
         for dependency in dependencies
     ]
@@ -192,6 +203,8 @@ def package_release(
             _copy_release_input(source, release_root, Path(str(value)))
         shutil.copy2(manifest.path, release_root / "foundation.toml")
         provenance = build_provenance(manifest, configuration)
+        if provenance["source_tree_clean"] is not True:
+            raise FoundationError("release packaging requires a clean source tree")
         atomic_json(release_root / "provenance.json", provenance)
         files = _inventory(release_root)
         atomic_json(release_root / "sbom.spdx.json", _spdx(manifest, files, provenance))
@@ -269,6 +282,8 @@ def verify_release(archive: Path, checksum: Path | None = None) -> dict[str, Any
             errors.append(
                 "release provenance is not bound to the checked-out candidate"
             )
+        if provenance.get("source_tree_clean") is not True:
+            errors.append("release provenance was produced from a dirty source tree")
         if errors:
             raise FoundationError("; ".join(errors))
         return {

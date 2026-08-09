@@ -8,9 +8,16 @@ behavior remains outside the foundation and enters only through declared hooks.
 
 ## Supported profile
 
-Version 0.1 supports Ubuntu 24.04 x86-64, GCC 13, C++20, CMake 3.21 or newer, Ninja,
-Conan 2.8.1 and GitHub Actions. Other compilers and platforms require their own profile,
-lockfile and native evidence; results are never substituted across platforms.
+Version 0.2 supports Ubuntu 24.04 x86-64, GCC 13, Clang 18 analysis and compatibility
+builds, C++20, CMake 3.21 or newer, Ninja, Conan 2.8.1 and GitHub Actions. Other compilers
+and platforms require their own profile, lockfile and native evidence; results are never
+substituted across platforms.
+
+Every generated project receives pinned source formatting and analysis configuration.
+Pull requests must pass format, Ruff, ShellCheck, actionlint, compiler warning, clang-tidy
+and coverage gates. Deep scheduled evidence adds IWYU, cppcheck, Dockerfile/documentation
+lint, clean-build time, binary size and repeated-build digest checks. These analysis options
+must not be enabled in the production Release configuration.
 
 ## Required application contract
 

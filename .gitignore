@@ -1,6 +1,7 @@
 .DS_Store
 .venv/
 .conan2/
+.tools/
 build/
 dist/
 runtime/
@@ -8,3 +9,5 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 CMakeUserPresets.json
+*.gcda
+*.gcno

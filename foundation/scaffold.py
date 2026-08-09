@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 from .common import FoundationError
 from .manifest import NAME_RE, VERSION_RE, load_manifest
-
 
 TEXT_SUFFIXES = {
     "",
@@ -44,6 +44,27 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
             "__pycache__",
         ),
     )
+    foundation_root = template.parents[1]
+    quality_assets = (
+        ".clang-format",
+        ".clang-tidy",
+        ".cmake-format.py",
+        ".editorconfig",
+        ".markdownlint-cli2.yaml",
+        ".shellcheckrc",
+        "quality/baseline.json",
+        "quality/npm/package-lock.json",
+        "quality/npm/package.json",
+        "quality/tools.json",
+        "requirements/quality.txt",
+        "ruff.toml",
+        "scripts/install_quality_tools.py",
+    )
+    for value in quality_assets:
+        source = foundation_root / value
+        destination = output / value
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
     identifier = name.replace("-", "_")
     class_name = "".join(part.capitalize() for part in name.split("-"))
     for path in sorted(item for item in output.rglob("*") if item.is_file()):
@@ -74,14 +95,33 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
             replacement = identifier
         if replacement != path.name:
             path.rename(path.with_name(replacement))
+    clang_format = shutil.which("clang-format-18") or shutil.which("clang-format")
+    if clang_format:
+        cpp_files = [
+            str(path)
+            for path in output.rglob("*")
+            if path.is_file() and path.suffix in {".cpp", ".h"}
+        ]
+        subprocess.run([clang_format, "-i", *cpp_files], check=True)
+    cmake_format = shutil.which("cmake-format")
+    if cmake_format:
+        cmake_files = [
+            str(path)
+            for path in output.rglob("*")
+            if path.is_file()
+            and (path.name == "CMakeLists.txt" or path.suffix == ".cmake")
+        ]
+        subprocess.run([cmake_format, "-i", *cmake_files], check=True)
     return {
         "schema_version": 1,
         "overall_pass": True,
         "project": name,
         "version": version,
+        "source_formatted": bool(clang_format and cmake_format),
         "output": str(output),
         "next_steps": [
             "generate or review the Conan lockfile",
+            "install and run the pinned quality tools",
             "run cpp-foundation validate",
             "open the first governed pull request",
         ],

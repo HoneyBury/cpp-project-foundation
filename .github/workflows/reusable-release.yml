@@ -45,7 +45,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Setup foundation CLI
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.1.1
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
       - name: Build release target
         working-directory: ${{ inputs.project-directory }}
         run: |
@@ -60,6 +60,7 @@ jobs:
             --output-folder=build/conan --build=missing
           CC=gcc-13 CXX=g++-13 cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/release --parallel --target "${{ inputs.cmake-target }}"
       - name: Package and verify

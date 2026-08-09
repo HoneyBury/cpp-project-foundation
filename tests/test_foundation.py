@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import json
 import os
 import stat
 import subprocess
 import tarfile
 import tempfile
 import unittest
-import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from foundation.build_quality import check_build_artifacts
 from foundation.common import FoundationError, atomic_json
 from foundation.deployment import DeploymentManager
 from foundation.evidence import package_evidence, record_evidence, verify_evidence
@@ -25,6 +26,7 @@ from foundation.operations import (
     verify_backup,
 )
 from foundation.release import package_release, verify_release
+from foundation.sbom import conan_lock_to_spdx
 from foundation.scaffold import initialize_project
 
 
@@ -75,6 +77,51 @@ benchmark = ["build/release/bin/sample-service", "--benchmark"]
 
 
 class ManifestTests(unittest.TestCase):
+    def test_build_quality_enforces_size_time_and_reproducibility(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            baseline = root / "baseline.json"
+            atomic_json(
+                baseline,
+                {
+                    "maximum_clean_build_seconds": 10,
+                    "maximum_release_binary_bytes": 16,
+                },
+            )
+            binary = root / "service-a"
+            rebuild = root / "service-b"
+            binary.write_bytes(b"deterministic")
+            rebuild.write_bytes(b"deterministic")
+            elapsed = root / "elapsed.txt"
+            elapsed.write_text("1.25\n", encoding="ascii")
+            result = check_build_artifacts(
+                baseline, binary, elapsed, root / "summary.json", rebuild
+            )
+            self.assertTrue(result["overall_pass"])
+            rebuild.write_bytes(b"different")
+            result = check_build_artifacts(
+                baseline, binary, elapsed, root / "failed.json", rebuild
+            )
+            self.assertFalse(result["overall_pass"])
+
+    def test_conan_lock_sbom_contains_scannable_purl(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            lockfile = root / "conan.lock"
+            atomic_json(
+                lockfile,
+                {
+                    "version": "0.5",
+                    "requires": ["fmt/11.2.0#recipe-revision"],
+                },
+            )
+            output = root / "dependencies.spdx.json"
+            result = conan_lock_to_spdx(lockfile, output)
+            self.assertEqual(result["dependency_count"], 1)
+            sbom = json.loads(output.read_text(encoding="utf-8"))
+            reference = sbom["packages"][0]["externalRefs"][0]
+            self.assertEqual(reference["referenceLocator"], "pkg:conan/fmt@11.2.0")
+
     def test_reference_manifest_is_valid(self) -> None:
         manifest = load_manifest(Path("examples/hello-service/foundation.toml"))
         self.assertEqual(manifest.name, "hello-service")
@@ -102,15 +149,21 @@ class ManifestTests(unittest.TestCase):
             manifest = load_manifest(output / "foundation.toml")
             self.assertEqual(manifest.name, "order-service")
             self.assertIn(
-                "project(order_service", (output / "CMakeLists.txt").read_text()
+                "order_service\n    VERSION 1.2.3",
+                (output / "CMakeLists.txt").read_text(),
             )
             self.assertFalse((output / "build").exists())
+            self.assertTrue((output / ".clang-format").is_file())
+            self.assertTrue((output / ".clang-tidy").is_file())
+            self.assertTrue((output / "quality/baseline.json").is_file())
+            self.assertTrue((output / "ruff.toml").is_file())
+            self.assertTrue((output / "scripts/install_quality_tools.py").is_file())
             self.assertTrue((output / "deploy/order-service.service").is_file())
             self.assertTrue(
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.1.1", workflow)
+            self.assertIn("@v0.2.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
@@ -165,6 +218,16 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
                 stream.write(b"tamper")
             with self.assertRaises(FoundationError):
                 verify_release(archive, checksum)
+
+    def test_dirty_source_tree_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name) / "source"
+            root.mkdir()
+            manifest_path = make_project(root)
+            with manifest_path.open("a", encoding="utf-8") as stream:
+                stream.write("\n")
+            with self.assertRaises(FoundationError):
+                package_release(load_manifest(manifest_path), Path(name) / "dist")
 
     def test_archive_path_escape_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as name:

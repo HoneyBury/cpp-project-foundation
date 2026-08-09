@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import fcntl
 import os
 import time
-import fcntl
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path

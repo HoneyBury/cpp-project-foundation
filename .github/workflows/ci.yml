@@ -89,6 +89,7 @@ jobs:
           cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_TESTING=ON \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_C_COMPILER_LAUNCHER="$(command -v sccache)" \
             -DCMAKE_CXX_COMPILER_LAUNCHER="$(command -v sccache)"

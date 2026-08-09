@@ -54,6 +54,7 @@ jobs:
             --output-folder=build/conan --build=missing
           CC=gcc-13 CXX=g++-13 cmake -S . -B build/release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON \
+            -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/release --parallel --target hello_service
       - name: Collect soak performance and ledger evidence
@@ -79,7 +80,7 @@ jobs:
             --summary runtime/evidence-inputs/perf.json
           cpp-foundation evidence --root runtime/evidence verify
           cpp-foundation evidence --root runtime/evidence package \
-            --output runtime/evidence-package-${GITHUB_RUN_ID}.tar.gz
+            --output "runtime/evidence-package-${GITHUB_RUN_ID}.tar.gz"
       - name: Upload operations evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

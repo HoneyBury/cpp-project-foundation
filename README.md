@@ -77,6 +77,9 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - foundation-owned reusable workflows use an immutable semantic release tag so consumers
   upgrade the platform explicitly; all third-party Actions remain pinned to full SHAs
 - candidate/runner/configuration/lockfile provenance
+- pinned clang-format, Ruff, ShellCheck and actionlint gates
+- Clang 18 clang-tidy with high-confidence findings treated as errors
+- zero-warning policy for every project-owned C++ target in CI
 
 ### P1: immutable release and deployment
 
@@ -86,6 +89,8 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - idempotent install, serialized deployment operations, upgrade, rollback, status and verify
 - failed candidate cleanup and automatic previous deployment recovery
 - runtime-only Dockerfile, hardened Compose, systemd and Prometheus/Grafana reference files
+- GCC 13 and Clang 18 compatibility builds, CodeQL and coverage thresholds
+- Dependabot policies for Actions, Python tooling and Docker bases
 
 ### P2: operations evidence
 
@@ -95,11 +100,16 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - application-defined external canary with fixed-window aggregation
 - bounded smoke, 2h and 8h soak profiles
 - repeated performance gates with explicit throughput and P99 thresholds
+- scheduled IWYU, cppcheck, Hadolint, Markdown and CMake quality checks
+- clean-build time, release binary size and repeat-build digest budgets
 
 ## Common commands
 
 ```bash
 cpp-foundation --manifest foundation.toml validate
+cpp-foundation quality --root . --mode deep --fix
+cpp-foundation quality --root . --mode fast
+cpp-foundation quality --root . --mode deep
 cpp-foundation --manifest foundation.toml package --output-dir dist
 cpp-foundation verify-release --archive dist/project-v0.1.0-linux-x64.tar.gz \
   --checksum dist/project-v0.1.0-linux-x64.tar.gz.sha256
@@ -110,6 +120,18 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
 sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   activate --deployment-id <deployment-id>
 ```
+
+Install the repository-pinned quality toolset before running the local quality commands:
+
+```bash
+python3 scripts/install_quality_tools.py \
+  --venv .venv/quality --tools-dir .tools
+export PATH="$PWD/.venv/quality/bin:$PWD/.tools/bin:$PWD/.tools/npm/node_modules/.bin:$PATH"
+```
+
+The fast quality gate is required on pull requests. Deep IWYU, cppcheck, documentation,
+Dockerfile and reproducibility gates run on schedule or explicit dispatch. Analysis and
+coverage options are isolated from the default Release build.
 
 Long operations are opt-in. Ordinary pull requests run a two-second bounded stability
 smoke. All generated workflows default to GitHub-hosted `ubuntu-24.04` runners. The 2h
@@ -122,7 +144,7 @@ shorter execution limit.
 - A template cannot configure GitHub branch rules, runner groups, environments or
   secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.1.1` release tag.
+  `HoneyBury/cpp-project-foundation@v0.2.0` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.

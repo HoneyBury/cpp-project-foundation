@@ -7,9 +7,10 @@ permissions:
   contents: read
 jobs:
   cpp-ci:
-    uses: HoneyBury/cpp-project-foundation/.github/workflows/reusable-cpp-ci.yml@v0.1.1
+    uses: HoneyBury/cpp-project-foundation/.github/workflows/reusable-cpp-ci.yml@v0.2.0
     with:
       conan-profile: conan/profiles/linux-gcc-x64
+      clang-profile: conan/profiles/linux-clang-x64
       conan-lockfile: conan/locks/linux-gcc-x64-release.lock
       cmake-target: hello_service
       test-target: hello_service_tests
