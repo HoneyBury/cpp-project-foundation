@@ -11,6 +11,7 @@ TEXT_SUFFIXES = {
     "",
     ".cpp",
     ".h",
+    ".md",
     ".py",
     ".txt",
     ".toml",
@@ -50,6 +51,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         ".clang-tidy",
         ".cmake-format.py",
         ".editorconfig",
+        ".gitignore",
         ".markdownlint-cli2.yaml",
         ".shellcheckrc",
         "quality/baseline.json",
@@ -67,6 +69,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         shutil.copy2(source, destination)
     identifier = name.replace("-", "_")
     class_name = "".join(part.capitalize() for part in name.split("-"))
+    display_name = " ".join(part.capitalize() for part in name.split("-"))
     for path in sorted(item for item in output.rglob("*") if item.is_file()):
         if path.suffix not in TEXT_SUFFIXES:
             continue
@@ -76,6 +79,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         text = text.replace("hello_core", f"{identifier}_core")
         text = text.replace("hello_requests_total", f"{identifier}_requests_total")
         text = text.replace("HelloService", class_name)
+        text = text.replace("Hello Service", display_name)
         text = text.replace("hello service", name)
         text = text.replace("namespace hello", f"namespace {identifier}")
         text = text.replace("hello::", f"{identifier}::")

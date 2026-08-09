@@ -9,6 +9,9 @@ on:
       conan-profile:
         type: string
         required: true
+      coverage-profile:
+        type: string
+        default: "conan/profiles/linux-gcc-x64"
       conan-lockfile:
         type: string
         required: true
@@ -46,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-format-18 shellcheck
       - name: Setup foundation quality tools
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.1
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.2
         with:
           install-quality-tools: "true"
       - name: Run source-quality gate
@@ -107,8 +110,8 @@ jobs:
           CC: gcc-13
           CXX: g++-13
         run: |
-          conan install . --profile:host "${{ inputs.conan-profile }}" \
-            --profile:build "${{ inputs.conan-profile }}" \
+          conan install . --profile:host "${{ inputs.coverage-profile }}" \
+            --profile:build "${{ inputs.coverage-profile }}" \
             --lockfile "${{ inputs.conan-lockfile }}" \
             --output-folder=build/conan-coverage --build=missing
           cmake -S . -B build/coverage -G Ninja -DCMAKE_BUILD_TYPE=Release \
