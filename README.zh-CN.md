@@ -139,7 +139,7 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
 
 - 模板无法配置 GitHub 分支规则、runner group、environment 或 secret。首次提交到
   `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.2.2` 引用公开的
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.2.3` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。

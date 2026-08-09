@@ -144,7 +144,7 @@ shorter execution limit.
 - A template cannot configure GitHub branch rules, runner groups, environments or
   secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.2.2` release tag.
+  `HoneyBury/cpp-project-foundation@v0.2.3` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.

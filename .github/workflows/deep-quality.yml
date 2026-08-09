@@ -44,6 +44,13 @@ jobs:
           install-quality-tools: "true"
       - name: Run deep source-quality gate
         run: cpp-foundation quality --root . --mode deep
+      - name: Validate deterministic generated-project quality
+        run: |
+          python3 -m pip install -e .
+          output=$(mktemp -d)/foundation-smoke-service
+          cpp-foundation init --name foundation-smoke-service \
+            --version 0.1.0 --output "$output"
+          cpp-foundation quality --root "$output" --mode deep
 
   deep-cpp-quality:
     runs-on: ubuntu-24.04
