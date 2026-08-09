@@ -15,7 +15,8 @@ on:
         default: 3
       runner:
         type: string
-        default: '["self-hosted","Linux","X64"]'
+        description: JSON runner labels; use self-hosted AOI for the 8h profile
+        default: '["ubuntu-24.04"]'
 
 permissions:
   contents: read
@@ -25,6 +26,15 @@ jobs:
     runs-on: ${{ fromJSON(inputs.runner) }}
     timeout-minutes: 600
     steps:
+      - name: Validate runner selection
+        env:
+          SOAK_PROFILE: ${{ inputs.soak-profile }}
+          RUNNER_JSON: ${{ inputs.runner }}
+        run: |
+          if [[ "$SOAK_PROFILE" == "overnight-8h" && "$RUNNER_JSON" != *'"self-hosted"'* ]]; then
+            echo "overnight-8h requires an authorized self-hosted runner" >&2
+            exit 2
+          fi
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

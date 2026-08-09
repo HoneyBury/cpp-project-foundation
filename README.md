@@ -110,8 +110,9 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
 ```
 
 Long operations are opt-in. Ordinary pull requests run a two-second bounded stability
-smoke; `.github/workflows/operations-evidence.yml` exposes `stability-2h` and
-`overnight-8h` profiles for fixed runners.
+smoke. The operations workflow defaults to GitHub-hosted execution for smoke and 2h;
+`overnight-8h` fails fast unless an authorized self-hosted runner such as AOI is selected.
+The repository or organization must grant that runner access before dispatching the gate.
 
 ## Production boundaries
 

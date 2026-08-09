@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -39,6 +40,15 @@ def main() -> int:
             if SHA_RE.fullmatch(revision) is None:
                 errors.append(
                     f"action is not pinned to a full SHA: {action}@{revision}"
+                )
+    for lockfile in sorted(ROOT.glob("**/conan/locks/*.lock")):
+        lock = json.loads(lockfile.read_text(encoding="utf-8"))
+        for reference in lock.get("requires", []):
+            if "#" not in reference:
+                errors.append(f"Conan recipe revision is not pinned: {lockfile}")
+            if "%" in reference:
+                errors.append(
+                    f"Conan lock contains a remote-specific timestamp: {lockfile}"
                 )
     if errors:
         print(*errors, sep="\n", file=sys.stderr)

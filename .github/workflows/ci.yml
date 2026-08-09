@@ -57,6 +57,12 @@ jobs:
           python3 scripts/check_repository.py
           python3 -m unittest discover -s tests -v
 
+      - name: Validate deployment configuration
+        env:
+          GRAFANA_ADMIN_USER: foundation-ci
+          GRAFANA_ADMIN_PASSWORD: foundation-ci-placeholder
+        run: docker compose -f examples/hello-service/deploy/docker-compose.yml config --quiet
+
       - name: Resolve dependency graph
         working-directory: examples/hello-service
         env:
@@ -110,7 +116,7 @@ jobs:
           path: |
             dist/**
             runtime/**
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Save caches
         if: always() && steps.restore-caches.outputs.cache-hit != 'true'

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import os
 import stat
 import subprocess
 import tarfile
 import tempfile
 import unittest
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from foundation.common import FoundationError, atomic_json
 from foundation.deployment import DeploymentManager
@@ -122,7 +125,15 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
         root.mkdir()
         manifest = load_manifest(make_project(root, version, exit_code))
         output = parent / f"dist-{version}-{exit_code}"
-        result = package_release(manifest, output)
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with patch.dict(os.environ, {"FOUNDATION_CANDIDATE_REVISION": commit}):
+            result = package_release(manifest, output)
         return Path(result["archive"]), Path(result["checksum"])
 
     def test_package_and_verify(self) -> None:
@@ -131,6 +142,14 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
             result = verify_release(archive, checksum)
             self.assertTrue(result["overall_pass"])
             self.assertGreater(result["file_count"], 3)
+            with tarfile.open(archive, "r:gz") as stream:
+                sbom_member = next(
+                    member
+                    for member in stream.getmembers()
+                    if member.name.endswith("/sbom.spdx.json")
+                )
+                sbom = json.load(stream.extractfile(sbom_member))
+            self.assertEqual(sbom["documentDescribes"], ["SPDXRef-Package"])
 
     def test_checksum_tampering_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as name:

@@ -67,7 +67,10 @@ def build_parser() -> argparse.ArgumentParser:
     package = sub.add_parser("package")
     package.add_argument("--output-dir", type=Path, default=Path("dist"))
     package.add_argument("--configuration", default="Release")
-    package.add_argument("--platform", default="linux-x64")
+    package.add_argument(
+        "--platform",
+        help="target platform label; defaults to the native host platform",
+    )
     verify = sub.add_parser("verify-release")
     verify.add_argument("--archive", type=Path, required=True)
     verify.add_argument("--checksum", type=Path)

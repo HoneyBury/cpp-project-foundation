@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import platform as host_platform
+import re
 import shutil
 import tarfile
 import tempfile
@@ -42,8 +44,79 @@ def _inventory(root: Path, *, excluded: set[str] | None = None) -> list[dict[str
     return files
 
 
-def _spdx(manifest: FoundationManifest, files: list[dict[str, Any]]) -> dict[str, Any]:
-    namespace = f"https://spdx.org/spdxdocs/{manifest.name}-{manifest.version}"
+def _native_platform_name() -> str:
+    systems = {"darwin": "macos", "linux": "linux", "windows": "windows"}
+    architectures = {
+        "amd64": "x64",
+        "x86_64": "x64",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+    }
+    system = systems.get(host_platform.system().lower(), host_platform.system().lower())
+    machine = architectures.get(
+        host_platform.machine().lower(), host_platform.machine().lower()
+    )
+    return f"{system}-{machine}"
+
+
+def _conan_dependencies(manifest: FoundationManifest) -> list[dict[str, str]]:
+    lockfile = manifest.root / str(manifest.build["lockfile"])
+    lock = load_json(lockfile)
+    dependencies = []
+    for reference in lock.get("requires", []):
+        pinned = str(reference).split("%", maxsplit=1)[0]
+        coordinate, _, revision = pinned.partition("#")
+        name_version = coordinate.split("@", maxsplit=1)[0]
+        name, separator, version = name_version.partition("/")
+        if not separator:
+            raise FoundationError(f"invalid Conan lock reference: {reference}")
+        identifier = re.sub(r"[^A-Za-z0-9.-]", "-", f"{name}-{version}")
+        dependencies.append(
+            {
+                "name": name,
+                "version": version,
+                "revision": revision or "unversioned",
+                "spdx_id": f"SPDXRef-Conan-{identifier}",
+            }
+        )
+    return dependencies
+
+
+def _spdx(
+    manifest: FoundationManifest,
+    files: list[dict[str, Any]],
+    provenance: dict[str, Any],
+) -> dict[str, Any]:
+    namespace = (
+        f"https://spdx.org/spdxdocs/{manifest.name}-{manifest.version}-"
+        f"{provenance['candidate_revision'][:12]}-"
+        f"{provenance['conan_lockfile_sha256'][:12]}"
+    )
+    dependencies = _conan_dependencies(manifest)
+    application = {
+        "name": manifest.name,
+        "SPDXID": "SPDXRef-Package",
+        "versionInfo": manifest.version,
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": True,
+        "licenseConcluded": "NOASSERTION",
+        "licenseDeclared": "NOASSERTION",
+        "copyrightText": "NOASSERTION",
+    }
+    dependency_packages = [
+        {
+            "name": dependency["name"],
+            "SPDXID": dependency["spdx_id"],
+            "versionInfo": dependency["version"],
+            "sourceInfo": f"Conan recipe revision: {dependency['revision']}",
+            "downloadLocation": "NOASSERTION",
+            "filesAnalyzed": False,
+            "licenseConcluded": "NOASSERTION",
+            "licenseDeclared": "NOASSERTION",
+            "copyrightText": "NOASSERTION",
+        }
+        for dependency in dependencies
+    ]
     return {
         "spdxVersion": "SPDX-2.3",
         "dataLicense": "CC0-1.0",
@@ -56,18 +129,8 @@ def _spdx(manifest: FoundationManifest, files: list[dict[str, Any]]) -> dict[str
             .replace("+00:00", "Z"),
             "creators": ["Tool: cpp-project-foundation-0.1.0"],
         },
-        "packages": [
-            {
-                "name": manifest.name,
-                "SPDXID": "SPDXRef-Package",
-                "versionInfo": manifest.version,
-                "downloadLocation": "NOASSERTION",
-                "filesAnalyzed": True,
-                "licenseConcluded": "NOASSERTION",
-                "licenseDeclared": "NOASSERTION",
-                "copyrightText": "NOASSERTION",
-            }
-        ],
+        "documentDescribes": ["SPDXRef-Package"],
+        "packages": [application, *dependency_packages],
         "files": [
             {
                 "fileName": f"./{item['path']}",
@@ -78,6 +141,14 @@ def _spdx(manifest: FoundationManifest, files: list[dict[str, Any]]) -> dict[str
             }
             for index, item in enumerate(files, start=1)
         ],
+        "relationships": [
+            {
+                "spdxElementId": "SPDXRef-Package",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": dependency["spdx_id"],
+            }
+            for dependency in dependencies
+        ],
     }
 
 
@@ -86,8 +157,9 @@ def package_release(
     output_dir: Path,
     *,
     configuration: str = "Release",
-    platform_name: str = "linux-x64",
+    platform_name: str | None = None,
 ) -> dict[str, Any]:
+    platform_name = platform_name or _native_platform_name()
     output_dir.mkdir(parents=True, exist_ok=True)
     archive_name = f"{manifest.name}-v{manifest.version}-{platform_name}.tar.gz"
     archive = output_dir / archive_name
@@ -121,7 +193,7 @@ def package_release(
         provenance = build_provenance(manifest, configuration)
         atomic_json(release_root / "provenance.json", provenance)
         files = _inventory(release_root)
-        atomic_json(release_root / "sbom.spdx.json", _spdx(manifest, files))
+        atomic_json(release_root / "sbom.spdx.json", _spdx(manifest, files, provenance))
         files = _inventory(release_root, excluded={"release-manifest.json"})
         release_manifest = {
             "schema_version": 1,

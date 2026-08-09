@@ -19,6 +19,12 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
+      - name: Verify release tag matches manifest
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("examples/hello-service/foundation.toml", "rb"))["project"]["version"])')
+          test "$GITHUB_REF_NAME" = "v$version"
       - name: Build release subject
         run: |
           sudo apt-get update
