@@ -50,7 +50,8 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-clang-x64 \
+          CC=clang CXX=clang++ conan install . \
+            --profile:host conan/profiles/linux-clang-x64 \
             --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing
@@ -83,7 +84,8 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-clang-x64 \
+          CC=clang CXX=clang++ conan install . \
+            --profile:host conan/profiles/linux-clang-x64 \
             --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing
@@ -111,7 +113,8 @@ jobs:
           python3 -m pip install "conan==2.8.1"
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
-          conan install . --profile:host conan/profiles/linux-clang-x64 \
+          CC=clang CXX=clang++ conan install . \
+            --profile:host conan/profiles/linux-clang-x64 \
             --profile:build conan/profiles/linux-clang-x64 \
             --lockfile conan/locks/linux-gcc-x64-release.lock \
             --output-folder=build/conan --build=missing

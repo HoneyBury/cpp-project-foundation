@@ -53,6 +53,9 @@ jobs:
           conan remote add conancenter https://center2.conan.io --force
       - name: Resolve dependencies
         working-directory: ${{ inputs.project-directory }}
+        env:
+          CC: clang
+          CXX: clang++
         run: |
           conan install . --profile:host "${{ inputs.conan-profile }}" \
             --profile:build "${{ inputs.conan-profile }}" \
