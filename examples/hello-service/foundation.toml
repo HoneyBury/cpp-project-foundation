@@ -2,7 +2,7 @@ schema_version = 1
 
 [project]
 name = "hello-service"
-version = "0.2.0"
+version = "0.2.1"
 
 [build]
 target = "hello_service"
