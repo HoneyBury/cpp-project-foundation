@@ -3,6 +3,12 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## 0.3.1 - 2026-08-09
+
+- Made the downloadable wheel checksum portable by recording a basename and verifying it
+  before release publication.
+- Kept automated Ubuntu Docker updates within the supported 24.04 release line.
+
 ## 0.3.0 - 2026-08-09
 
 ### Added

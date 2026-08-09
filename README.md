@@ -23,7 +23,7 @@ Install an immutable release with `pipx` and generate a service from the maintai
 reference template:
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.0"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.1"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -149,7 +149,7 @@ shorter execution limit.
   script defaults to zero approvals for a single maintainer; team repositories should pass
   `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.3.0` release tag.
+  `HoneyBury/cpp-project-foundation@v0.3.1` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.

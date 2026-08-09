@@ -40,3 +40,8 @@ workflow tag。
 - Ubuntu Docker major 自动更新会被忽略；平台升级必须重新提供兼容性证据。
 
 0.3.0 不包含 manifest schema 迁移，当前仍使用 `schema_version = 1`。
+
+## 0.3.0 升级至 0.3.1
+
+无需迁移生成文件或 manifest。0.3.1 替换了 0.3.0 中不可移植的 wheel 下载校验文件；
+请更新 foundation workflow 和安装 tag。

@@ -46,8 +46,8 @@ performance budgets.
   separate security or maintenance branch.
 - Deprecations are documented for at least one minor before removal unless retaining the
   behavior would leave a known security or integrity failure.
-- Ubuntu LTS major changes are reviewed as explicit compatibility work and are ignored by
-  automated Docker major-version updates.
+- Ubuntu release-line changes are reviewed as explicit compatibility work; automated
+  Docker updates retain the supported 24.04 minor line.
 
 Consumers should evaluate upgrades with `doctor`, `template-diff`, their required pull
 request gates and at least the operations smoke profile before changing the pinned tag.
