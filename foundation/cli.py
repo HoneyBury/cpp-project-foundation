@@ -9,6 +9,7 @@ from typing import Any
 
 from .common import FoundationError, atomic_json, load_json
 from .deployment import DeploymentManager
+from .doctor import run_doctor
 from .evidence import package_evidence, record_evidence, verify_evidence
 from .manifest import export_environment, load_manifest
 from .operations import (
@@ -25,6 +26,7 @@ from .quality import run_quality
 from .release import package_release, verify_release
 from .sbom import conan_lock_to_spdx
 from .scaffold import initialize_project
+from .template_diff import compare_template
 
 
 def _print(payload: Any) -> None:
@@ -60,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--output", type=Path, required=True)
 
     sub.add_parser("validate")
+    doctor = sub.add_parser("doctor")
+    doctor.add_argument("--root", type=Path, default=Path("."))
+    doctor.add_argument("--strict-tools", action="store_true")
+    template_diff = sub.add_parser("template-diff")
+    template_diff.add_argument("--root", type=Path, default=Path("."))
     export = sub.add_parser("export-env")
     export.add_argument("--github-env", type=Path, required=True)
     provenance = sub.add_parser("provenance")
@@ -158,6 +165,12 @@ def execute(args: argparse.Namespace) -> Any:
     if args.command == "validate":
         manifest = _manifest(args)
         return {"schema_version": 1, "overall_pass": True, "project": manifest.name}
+    if args.command == "doctor":
+        return run_doctor(
+            args.root, Path(args.manifest), strict_tools=args.strict_tools
+        )
+    if args.command == "template-diff":
+        return compare_template(args.root, Path(args.manifest))
     if args.command == "export-env":
         manifest = _manifest(args)
         export_environment(manifest, args.github_env)

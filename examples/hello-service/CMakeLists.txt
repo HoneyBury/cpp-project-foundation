@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(
     hello_service
-    VERSION 0.2.3
+    VERSION 0.3.0
     LANGUAGES CXX
 )
 

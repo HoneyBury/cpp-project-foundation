@@ -50,6 +50,8 @@ jobs:
           output=$(mktemp -d)/foundation-smoke-service
           cpp-foundation init --name foundation-smoke-service \
             --version 0.1.0 --output "$output"
+          cpp-foundation --manifest foundation.toml doctor --root "$output"
+          cpp-foundation --manifest foundation.toml template-diff --root "$output"
           cpp-foundation quality --root "$output" --mode deep
 
   deep-cpp-quality:
