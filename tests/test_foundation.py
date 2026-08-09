@@ -109,6 +109,9 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue(
                 (output / "include/order_service/request_parser.h").is_file()
             )
+            workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+            self.assertIn("@v0.1.1", workflow)
+            self.assertNotIn("@v1.2.3", workflow)
             generated_text = "\n".join(
                 path.read_text(encoding="utf-8")
                 for path in output.rglob("*")

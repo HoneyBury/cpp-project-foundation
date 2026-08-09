@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .common import FoundationError, atomic_json, load_json, relative_path, sha256_file
 from .manifest import FoundationManifest
 from .provenance import build_provenance
@@ -127,7 +128,7 @@ def _spdx(
             "created": datetime.now(UTC)
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
-            "creators": ["Tool: cpp-project-foundation-0.1.0"],
+            "creators": [f"Tool: cpp-project-foundation-{__version__}"],
         },
         "documentDescribes": ["SPDXRef-Package"],
         "packages": [application, *dependency_packages],

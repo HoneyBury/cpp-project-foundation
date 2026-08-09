@@ -119,7 +119,11 @@ The repository or organization must grant that runner access before dispatching 
 - A template cannot configure GitHub branch rules, runner groups, environments or
   secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit.
 - Private consumers must enable GitHub's repository access for private reusable Actions
-  before referencing `HoneyBury/cpp-project-foundation@v0.1.0`.
+  before referencing `HoneyBury/cpp-project-foundation@v0.1.1`.
+- GitHub-hosted attestations run automatically for public repositories. Private personal
+  repositories still publish SHA-256, provenance JSON and SPDX; supported enterprise
+  repositories can set `FOUNDATION_ENABLE_GITHUB_ATTESTATIONS=true` to enable native
+  attestations.
 - Conan profiles may be shared; lockfiles are owned by each consuming dependency graph.
 - Backup archives require an age recipient by default. Plaintext mode exists only for tests.
 - The local evidence package reports `off_host_copy_verified=false`; a separate host must

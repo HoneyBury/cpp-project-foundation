@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import runpy
 import sys
 import tomllib
 from pathlib import Path
@@ -49,6 +50,18 @@ def main() -> int:
             errors.append(
                 f"Python build dependency is not exactly pinned: {requirement}"
             )
+    manifest = tomllib.loads(
+        (ROOT / "examples/hello-service/foundation.toml").read_text(encoding="utf-8")
+    )
+    versions = {
+        "foundation package": runpy.run_path(ROOT / "foundation/__init__.py")[
+            "__version__"
+        ],
+        "Python project": pyproject["project"]["version"],
+        "reference manifest": manifest["project"]["version"],
+    }
+    if len(set(versions.values())) != 1:
+        errors.append(f"foundation versions are inconsistent: {versions}")
     for lockfile in sorted(ROOT.glob("**/conan/locks/*.lock")):
         lock = json.loads(lockfile.read_text(encoding="utf-8"))
         for reference in lock.get("requires", []):

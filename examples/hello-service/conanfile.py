@@ -4,7 +4,7 @@ from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 
 class HelloServiceConan(ConanFile):
     name = "hello_service_workspace"
-    version = "0.1.0"
+    version = "0.1.1"
     package_type = "application"
     settings = "os", "arch", "compiler", "build_type"
 

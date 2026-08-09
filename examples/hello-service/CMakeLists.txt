@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(hello_service VERSION 0.1.0 LANGUAGES CXX)
+project(hello_service VERSION 0.1.1 LANGUAGES CXX)
 
 option(ENABLE_TESTING "Build tests" ON)
 option(ENABLE_FUZZ "Build libFuzzer targets" OFF)

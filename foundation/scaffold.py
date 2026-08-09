@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from .common import FoundationError
-from .manifest import NAME_RE, VERSION_RE
+from .manifest import NAME_RE, VERSION_RE, load_manifest
 
 
 TEXT_SUFFIXES = {
@@ -31,6 +31,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
     template = Path(__file__).resolve().parents[1] / "examples" / "hello-service"
     if not template.is_dir():
         raise FoundationError("cpp-service template is unavailable")
+    template_version = load_manifest(template / "foundation.toml").version
     shutil.copytree(
         template,
         output,
@@ -58,7 +59,12 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         text = text.replace("namespace hello", f"namespace {identifier}")
         text = text.replace("hello::", f"{identifier}::")
         text = text.replace('"hello/', f'"{identifier}/')
-        text = text.replace("0.1.0", version)
+        if path.relative_to(output).as_posix() in {
+            "CMakeLists.txt",
+            "conanfile.py",
+            "foundation.toml",
+        }:
+            text = text.replace(template_version, version)
         path.write_text(text, encoding="utf-8")
     for path in sorted(
         output.rglob("*"), key=lambda item: len(item.parts), reverse=True
