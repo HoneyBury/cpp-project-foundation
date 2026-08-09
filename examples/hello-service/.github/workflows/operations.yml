@@ -6,10 +6,6 @@ on:
         type: choice
         options: [smoke, stability-2h, overnight-8h]
         default: smoke
-      runner:
-        type: choice
-        options: [github-hosted, self-hosted-x64]
-        default: github-hosted
 permissions:
   contents: read
 jobs:
@@ -20,4 +16,3 @@ jobs:
       conan-lockfile: conan/locks/linux-gcc-x64-release.lock
       cmake-target: hello_service
       soak-profile: ${{ inputs.soak-profile }}
-      runner: ${{ inputs.runner == 'self-hosted-x64' && '["self-hosted","Linux","X64"]' || '["ubuntu-24.04"]' }}

@@ -20,6 +20,8 @@ def main() -> int:
     required = [
         ".github/CODEOWNERS",
         "CONTRIBUTING.md",
+        "README.md",
+        "README.zh-CN.md",
         "SECURITY.md",
         ".github/workflows/ci.yml",
         ".github/workflows/security.yml",
@@ -28,6 +30,14 @@ def main() -> int:
     for value in required:
         if not (ROOT / value).is_file():
             errors.append(f"missing governance file: {value}")
+    readme_links = {
+        "README.md": "README.zh-CN.md",
+        "README.zh-CN.md": "README.md",
+    }
+    for readme, target in readme_links.items():
+        path = ROOT / readme
+        if path.is_file() and target not in path.read_text(encoding="utf-8"):
+            errors.append(f"README language switch is missing: {readme} -> {target}")
     workflows = sorted(ROOT.glob("**/.github/workflows/*.yml"))
     for workflow in workflows:
         text = workflow.read_text(encoding="utf-8")

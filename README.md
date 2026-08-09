@@ -1,5 +1,7 @@
 # C++ Project Foundation
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 `cpp-project-foundation` is a manifest-driven engineering foundation for C++ services.
 It extracts reusable build, dependency, security, release, deployment and operations
 contracts without importing any product-specific service topology.
@@ -10,7 +12,7 @@ The first supported production profile is deliberately narrow:
 - GCC 13, C++20, CMake, Ninja and sccache
 - Conan 2.8.1 with project-owned profiles and lockfiles
 - one independently deployable service per generated project
-- GitHub Actions and an optional self-hosted fixed runner for long gates
+- GitHub-hosted Actions runners by default, with optional self-hosted runners for long gates
 
 Multi-service orchestration, application protocols, databases, SDK generation and cloud
 platform policy are extension points, not hidden assumptions in the foundation core.
@@ -110,20 +112,20 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
 ```
 
 Long operations are opt-in. Ordinary pull requests run a two-second bounded stability
-smoke. The operations workflow defaults to GitHub-hosted execution for smoke and 2h;
-`overnight-8h` fails fast unless an authorized self-hosted runner such as AOI is selected.
-The repository or organization must grant that runner access before dispatching the gate.
+smoke. All generated workflows default to GitHub-hosted `ubuntu-24.04` runners. The 2h
+profile can use that default. Before enabling `overnight-8h`, a consuming project must
+explicitly configure an authorized self-hosted runner because GitHub-hosted jobs have a
+shorter execution limit.
 
 ## Production boundaries
 
 - A template cannot configure GitHub branch rules, runner groups, environments or
   secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit.
-- Private consumers must enable GitHub's repository access for private reusable Actions
-  before referencing `HoneyBury/cpp-project-foundation@v0.1.1`.
-- GitHub-hosted attestations run automatically for public repositories. Private personal
-  repositories still publish SHA-256, provenance JSON and SPDX; supported enterprise
-  repositories can set `FOUNDATION_ENABLE_GITHUB_ATTESTATIONS=true` to enable native
-  attestations.
+- Consumers reference the public reusable workflows through the immutable
+  `HoneyBury/cpp-project-foundation@v0.1.1` release tag.
+- GitHub-hosted attestations run automatically for public repositories. Private consumers
+  still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
+  explicitly enable native attestations.
 - Conan profiles may be shared; lockfiles are owned by each consuming dependency graph.
 - Backup archives require an age recipient by default. Plaintext mode exists only for tests.
 - The local evidence package reports `off_host_copy_verified=false`; a separate host must

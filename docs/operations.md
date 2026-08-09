@@ -39,10 +39,12 @@ Schedule canary `run` on a host outside the production service host at each natu
 minute. Samples are create-only by minute. Aggregation counts missing minutes as failures,
 requires one fixed candidate and reports inclusive availability.
 
-The ordinary CI smoke is not long-run evidence. A 2h gate may run on GitHub-hosted Linux,
-but the 8h profile requires a fixed self-hosted runner whose power, network and resource
-isolation are controlled. The workflow rejects an 8h request without a `self-hosted`
-runner label. Preserve interrupted results as failures rather than combining partial windows.
+The ordinary CI smoke is not long-run evidence. Generated projects default to the
+GitHub-hosted `ubuntu-24.04` runner, which can also execute the 2h gate. Before enabling
+the 8h profile, the consuming project must explicitly configure a fixed self-hosted runner
+whose power, network and resource isolation are controlled. The workflow rejects an 8h
+request without a `self-hosted` runner label. Preserve interrupted results as failures
+rather than combining partial windows.
 
 ## Evidence retention
 

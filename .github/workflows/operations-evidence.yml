@@ -15,7 +15,7 @@ on:
         default: 3
       runner:
         type: string
-        description: JSON runner labels; use self-hosted AOI for the 8h profile
+        description: JSON runner labels; defaults to GitHub-hosted Ubuntu
         default: '["ubuntu-24.04"]'
 
 permissions:
