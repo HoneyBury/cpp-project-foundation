@@ -40,7 +40,8 @@ manifest、依赖 lockfile、部署策略或性能预算。
   版本只包含向后兼容修复。
 - 最新 minor 接收修复；旧 minor 仍可下载，但不单独维护安全或修复分支。
 - 除非旧行为会保留已知安全或完整性问题，否则弃用能力至少提前一个 minor 记录。
-- Ubuntu LTS 大版本升级必须作为显式兼容性工作审核，自动 Docker 更新会忽略 major 升级。
+- Ubuntu 发布线变更必须作为显式兼容性工作审核，自动 Docker 更新会保持在受支持的
+  24.04 minor 线内。
 
 消费项目变更固定 tag 前，应依次执行 `doctor`、`template-diff`、项目必需的 PR 门禁，
 并至少运行一次 operations smoke profile。

@@ -41,3 +41,8 @@ the protected default branch.
   compatibility evidence set.
 
 There is no manifest schema migration in 0.3.0; `schema_version = 1` remains current.
+
+## 0.3.0 to 0.3.1
+
+No generated or manifest migration is required. Version 0.3.1 replaces the non-portable
+downloadable wheel checksum from 0.3.0; update foundation workflow and installation tags.

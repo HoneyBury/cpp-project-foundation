@@ -80,7 +80,12 @@ jobs:
           set -euo pipefail
           python3 -m pip wheel . --no-deps --wheel-dir dist
           wheel=$(find "$PWD/dist" -maxdepth 1 -name '*.whl' -print -quit)
-          sha256sum "$wheel" > "$wheel.sha256"
+          wheel_name=$(basename "$wheel")
+          (
+            cd "$(dirname "$wheel")"
+            sha256sum "$wheel_name" > "$wheel_name.sha256"
+            sha256sum -c "$wheel_name.sha256"
+          )
           python3 -m venv runtime/release-wheel-venv
           runtime/release-wheel-venv/bin/pip install "$wheel"
           runtime/release-wheel-venv/bin/cpp-foundation init \
