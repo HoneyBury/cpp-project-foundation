@@ -18,3 +18,6 @@ updates:
     directory: "/examples/hello-service/deploy"
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: ubuntu
+        update-types: ["version-update:semver-major"]

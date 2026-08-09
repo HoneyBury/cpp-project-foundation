@@ -59,6 +59,21 @@ jobs:
           python3 scripts/check_repository.py
           python3 -m unittest discover -s tests -v
 
+      - name: Validate installed wheel scaffold
+        run: |
+          set -euo pipefail
+          python3 -m pip wheel . --no-deps --wheel-dir runtime/wheel
+          python3 -m venv runtime/wheel-venv
+          wheel=$(find runtime/wheel -maxdepth 1 -name '*.whl' -print -quit)
+          runtime/wheel-venv/bin/pip install "$wheel"
+          runtime/wheel-venv/bin/cpp-foundation init \
+            --name installed-smoke --version 1.0.0 \
+            --output runtime/installed-smoke
+          runtime/wheel-venv/bin/cpp-foundation --manifest foundation.toml \
+            doctor --root runtime/installed-smoke
+          runtime/wheel-venv/bin/cpp-foundation --manifest foundation.toml \
+            template-diff --root runtime/installed-smoke
+
       - name: Validate deployment configuration
         env:
           GRAFANA_ADMIN_USER: foundation-ci

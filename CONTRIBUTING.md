@@ -1,9 +1,11 @@
 # Contributing
 
-Changes use pull requests against `main`. A pull request must pass `cpp-ci`, resolve all
-conversations, and receive one independent approval. Do not weaken a gate to make an
-observed failure pass. Changes to reusable workflows, release provenance, deployment
-transactions, backups, or evidence formats require focused tests and a rollback note.
+Changes use pull requests against `main`. A pull request must pass every configured
+required check and resolve all conversations. Single-maintainer repositories default to
+zero required approvals; teams should explicitly require at least one independent
+approval. Do not weaken a gate to make an observed failure pass. Changes to reusable
+workflows, release provenance, deployment transactions, backups, or evidence formats
+require focused tests and a rollback note.
 
 Run locally:
 

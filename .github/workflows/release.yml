@@ -74,6 +74,23 @@ jobs:
           cpp-foundation verify-release --archive "$archive" --checksum "$archive.sha256"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "sbom=$sbom" >> "$GITHUB_OUTPUT"
+      - name: Build and verify installable foundation wheel
+        id: wheel
+        run: |
+          set -euo pipefail
+          python3 -m pip wheel . --no-deps --wheel-dir dist
+          wheel=$(find "$PWD/dist" -maxdepth 1 -name '*.whl' -print -quit)
+          sha256sum "$wheel" > "$wheel.sha256"
+          python3 -m venv runtime/release-wheel-venv
+          runtime/release-wheel-venv/bin/pip install "$wheel"
+          runtime/release-wheel-venv/bin/cpp-foundation init \
+            --name release-wheel-smoke --version 1.0.0 \
+            --output runtime/release-wheel-smoke
+          runtime/release-wheel-venv/bin/cpp-foundation --manifest foundation.toml \
+            doctor --root runtime/release-wheel-smoke
+          runtime/release-wheel-venv/bin/cpp-foundation --manifest foundation.toml \
+            template-diff --root runtime/release-wheel-smoke
+          echo "wheel=$wheel" >> "$GITHUB_OUTPUT"
       - name: Attest archive provenance
         if: env.FOUNDATION_RELEASE_TAG != '' && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -85,6 +102,11 @@ jobs:
         with:
           subject-path: ${{ steps.package.outputs.archive }}
           sbom-path: ${{ steps.package.outputs.sbom }}
+      - name: Attest foundation wheel provenance
+        if: env.FOUNDATION_RELEASE_TAG != '' && (github.event.repository.visibility == 'public' || vars.FOUNDATION_ENABLE_GITHUB_ATTESTATIONS == 'true')
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.wheel.outputs.wheel }}
       - name: Publish immutable GitHub release
         if: env.FOUNDATION_RELEASE_TAG != ''
         env:

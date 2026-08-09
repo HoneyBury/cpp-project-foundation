@@ -19,12 +19,12 @@ platform policy are extension points, not hidden assumptions in the foundation c
 
 ## Create a project
 
-Clone this repository and generate a service from the maintained reference template:
+Install an immutable release with `pipx` and generate a service from the maintained
+reference template:
 
 ```bash
-python3 -m venv .venv/foundation
-.venv/foundation/bin/pip install -e .
-.venv/foundation/bin/cpp-foundation init \
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.0"
+cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
   --output ../order-service
@@ -107,6 +107,9 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ```bash
 cpp-foundation --manifest foundation.toml validate
+cpp-foundation --manifest foundation.toml doctor --root .
+cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
+cpp-foundation --manifest foundation.toml template-diff --root .
 cpp-foundation quality --root . --mode deep --fix
 cpp-foundation quality --root . --mode fast
 cpp-foundation quality --root . --mode deep
@@ -142,9 +145,11 @@ shorter execution limit.
 ## Production boundaries
 
 - A template cannot configure GitHub branch rules, runner groups, environments or
-  secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit.
+  secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit. The
+  script defaults to zero approvals for a single maintainer; team repositories should pass
+  `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.2.3` release tag.
+  `HoneyBury/cpp-project-foundation@v0.3.0` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.
@@ -154,5 +159,11 @@ shorter execution limit.
   verify and record the transfer.
 - A successful framework smoke test is not an availability, capacity or HA claim.
 
+The independently governed
+[`cpp-foundation-smoke`](https://github.com/HoneyBury/cpp-foundation-smoke) repository
+exercises generation, pull-request gates, release attestations, Compose runtime and
+operations profiles without sharing this repository's source tree.
+
 See [foundation-contract.md](docs/foundation-contract.md),
+[compatibility.md](docs/compatibility.md), [migrations.md](docs/migrations.md),
 [architecture.md](docs/architecture.md) and [operations.md](docs/operations.md).

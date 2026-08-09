@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sysconfig
 from pathlib import Path
 
 from .common import FoundationError
@@ -21,6 +22,39 @@ TEXT_SUFFIXES = {
     ".service",
 }
 
+QUALITY_ASSETS = (
+    ".clang-format",
+    ".clang-tidy",
+    ".cmake-format.py",
+    ".editorconfig",
+    ".gitignore",
+    ".markdownlint-cli2.yaml",
+    ".shellcheckrc",
+    "quality/baseline.json",
+    "quality/npm/package-lock.json",
+    "quality/npm/package.json",
+    "quality/tools.json",
+    "requirements/quality.txt",
+    "ruff.toml",
+    "scripts/install_quality_tools.py",
+)
+
+
+def _template_sources() -> tuple[Path, Path]:
+    repository_root = Path(__file__).resolve().parents[1]
+    repository_template = repository_root / "examples" / "hello-service"
+    if repository_template.is_dir():
+        return repository_template, repository_root
+    installed_template = (
+        Path(sysconfig.get_path("data"))
+        / "share"
+        / "cpp-project-foundation"
+        / "template"
+    )
+    if installed_template.is_dir():
+        return installed_template, installed_template
+    raise FoundationError("cpp-service template is unavailable")
+
 
 def initialize_project(name: str, version: str, output: Path) -> dict[str, object]:
     if NAME_RE.fullmatch(name) is None:
@@ -29,9 +63,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         raise FoundationError("project version must be semantic")
     if output.exists():
         raise FoundationError(f"project output already exists: {output}")
-    template = Path(__file__).resolve().parents[1] / "examples" / "hello-service"
-    if not template.is_dir():
-        raise FoundationError("cpp-service template is unavailable")
+    template, quality_root = _template_sources()
     template_version = load_manifest(template / "foundation.toml").version
     shutil.copytree(
         template,
@@ -45,25 +77,8 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
             "__pycache__",
         ),
     )
-    foundation_root = template.parents[1]
-    quality_assets = (
-        ".clang-format",
-        ".clang-tidy",
-        ".cmake-format.py",
-        ".editorconfig",
-        ".gitignore",
-        ".markdownlint-cli2.yaml",
-        ".shellcheckrc",
-        "quality/baseline.json",
-        "quality/npm/package-lock.json",
-        "quality/npm/package.json",
-        "quality/tools.json",
-        "requirements/quality.txt",
-        "ruff.toml",
-        "scripts/install_quality_tools.py",
-    )
-    for value in quality_assets:
-        source = foundation_root / value
+    for value in QUALITY_ASSETS:
+        source = quality_root / value
         destination = output / value
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)

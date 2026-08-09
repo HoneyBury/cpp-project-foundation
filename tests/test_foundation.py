@@ -14,6 +14,7 @@ from unittest.mock import patch
 from foundation.build_quality import check_build_artifacts
 from foundation.common import FoundationError, atomic_json
 from foundation.deployment import DeploymentManager
+from foundation.doctor import run_doctor
 from foundation.evidence import package_evidence, record_evidence, verify_evidence
 from foundation.manifest import load_manifest
 from foundation.operations import (
@@ -28,6 +29,7 @@ from foundation.operations import (
 from foundation.release import package_release, verify_release
 from foundation.sbom import conan_lock_to_spdx
 from foundation.scaffold import initialize_project
+from foundation.template_diff import compare_template
 
 
 def write(path: Path, text: str, executable: bool = False) -> None:
@@ -173,7 +175,7 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.2.3", workflow)
+            self.assertIn("@v0.3.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
@@ -210,6 +212,84 @@ class ManifestTests(unittest.TestCase):
             '--profile:host "${{ inputs.coverage-profile }}"',
             quality,
         )
+
+    def test_doctor_reports_contract_and_optional_tool_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            output = Path(name) / "doctor-service"
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                initialize_project("doctor-service", "1.2.3", output)
+
+            def available(tool: str) -> str | None:
+                return f"/usr/bin/{tool}" if tool in {"git", "cmake"} else None
+
+            with patch("foundation.doctor.shutil.which", side_effect=available):
+                result = run_doctor(output, Path("foundation.toml"))
+            self.assertTrue(result["overall_pass"])
+            self.assertEqual(result["counts"]["fail"], 0)
+            self.assertGreater(result["counts"]["warn"], 0)
+            statuses = {item["name"]: item["status"] for item in result["checks"]}
+            self.assertEqual(statuses["foundation-version"], "pass")
+            self.assertEqual(statuses["tool:conan"], "warn")
+
+            with patch("foundation.doctor.shutil.which", side_effect=available):
+                strict = run_doctor(output, Path("foundation.toml"), strict_tools=True)
+            self.assertFalse(strict["overall_pass"])
+            strict_statuses = {
+                item["name"]: item["status"] for item in strict["checks"]
+            }
+            self.assertEqual(strict_statuses["tool:conan"], "fail")
+
+    def test_template_diff_detects_foundation_owned_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            output = Path(name) / "drift-service"
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                initialize_project("drift-service", "1.2.3", output)
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                clean = compare_template(output, Path("foundation.toml"))
+            self.assertTrue(clean["overall_pass"])
+
+            workflow = output / ".github/workflows/ci.yml"
+            workflow.write_text(
+                workflow.read_text(encoding="utf-8") + "\n# consumer schedule\n",
+                encoding="utf-8",
+            )
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                consumer_owned = compare_template(output, Path("foundation.toml"))
+            self.assertTrue(consumer_owned["overall_pass"])
+
+            (output / ".clang-format").write_text("BasedOnStyle: LLVM\n")
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                changed = compare_template(output, Path("foundation.toml"))
+            self.assertFalse(changed["overall_pass"])
+            self.assertIn(
+                {"path": ".clang-format", "status": "modified"},
+                changed["changes"],
+            )
+
+    def test_branch_protection_bootstrap_supports_single_maintainer(self) -> None:
+        result = subprocess.run(
+            [
+                "python3",
+                "scripts/bootstrap_github.py",
+                "--repository",
+                "example/project",
+                "--required-check",
+                "cpp-ci / gcc",
+                "--required-check",
+                "cpp-ci / clang",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        policy = json.loads(result.stdout)
+        self.assertEqual(
+            policy["required_status_checks"]["contexts"],
+            ["cpp-ci / gcc", "cpp-ci / clang"],
+        )
+        reviews = policy["required_pull_request_reviews"]
+        self.assertEqual(reviews["required_approving_review_count"], 0)
+        self.assertFalse(reviews["require_last_push_approval"])
 
 
 class ReleaseAndDeploymentTests(unittest.TestCase):

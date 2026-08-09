@@ -19,12 +19,11 @@
 
 ## 创建项目
 
-克隆本仓库，然后通过持续维护的参考模板生成服务：
+使用 `pipx` 安装不可变发布版本，然后通过持续维护的参考模板生成服务：
 
 ```bash
-python3 -m venv .venv/foundation
-.venv/foundation/bin/pip install -e .
-.venv/foundation/bin/cpp-foundation init \
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.0"
+cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
   --output ../order-service
@@ -105,6 +104,9 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ```bash
 cpp-foundation --manifest foundation.toml validate
+cpp-foundation --manifest foundation.toml doctor --root .
+cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
+cpp-foundation --manifest foundation.toml template-diff --root .
 cpp-foundation quality --root . --mode deep --fix
 cpp-foundation quality --root . --mode fast
 cpp-foundation quality --root . --mode deep
@@ -138,8 +140,10 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
 ## 生产边界
 
 - 模板无法配置 GitHub 分支规则、runner group、environment 或 secret。首次提交到
-  `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.2.3` 引用公开的
+  `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。脚本针对单维护者
+  默认要求零审批；团队仓库应传入 `--required-approvals 1` 或更高值，并为每个精确检查
+  名称重复传入 `--required-check`。
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.3.0` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。
@@ -148,5 +152,12 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
 - 本地证据包会报告 `off_host_copy_verified=false`；必须由另一台主机校验并记录传输。
 - foundation smoke 通过不代表已经满足可用性、容量或高可用目标。
 
+独立治理的
+[`cpp-foundation-smoke`](https://github.com/HoneyBury/cpp-foundation-smoke) 仓库在不共享
+本仓库源码树的情况下验证项目生成、PR 门禁、发布 attestation、Compose 运行时和
+operations profile。
+
 进一步阅读：[foundation-contract.md](docs/foundation-contract.md)、
-[architecture.md](docs/architecture.md) 和 [operations.md](docs/operations.md)。
+[compatibility.zh-CN.md](docs/compatibility.zh-CN.md)、
+[migrations.zh-CN.md](docs/migrations.zh-CN.md)、[architecture.md](docs/architecture.md)
+和 [operations.md](docs/operations.md)。

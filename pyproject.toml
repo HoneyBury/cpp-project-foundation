@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cpp-project-foundation"
-version = "0.2.3"
+version = "0.3.0"
 description = "Manifest-driven engineering foundation for production C++ projects"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -16,3 +16,61 @@ cpp-foundation-build-check = "foundation.build_quality:main"
 
 [tool.setuptools]
 packages = ["foundation"]
+
+[tool.setuptools.data-files]
+"share/cpp-project-foundation/template" = [
+  ".clang-format",
+  ".clang-tidy",
+  ".cmake-format.py",
+  ".editorconfig",
+  ".gitignore",
+  ".markdownlint-cli2.yaml",
+  ".shellcheckrc",
+  "examples/hello-service/.iwyu.imp",
+  "examples/hello-service/CMakeLists.txt",
+  "examples/hello-service/README.md",
+  "examples/hello-service/conanfile.py",
+  "examples/hello-service/foundation.toml",
+  "ruff.toml",
+]
+"share/cpp-project-foundation/template/.github/workflows" = [
+  "examples/hello-service/.github/workflows/*.yml",
+]
+"share/cpp-project-foundation/template/cmake" = [
+  "examples/hello-service/cmake/*.cmake",
+]
+"share/cpp-project-foundation/template/conan/locks" = [
+  "examples/hello-service/conan/locks/*.lock",
+]
+"share/cpp-project-foundation/template/conan/profiles" = [
+  "examples/hello-service/conan/profiles/*",
+]
+"share/cpp-project-foundation/template/deploy" = [
+  "examples/hello-service/deploy/*",
+]
+"share/cpp-project-foundation/template/fuzz" = [
+  "examples/hello-service/fuzz/*.cpp",
+]
+"share/cpp-project-foundation/template/include/hello" = [
+  "examples/hello-service/include/hello/*.h",
+]
+"share/cpp-project-foundation/template/src" = [
+  "examples/hello-service/src/*.cpp",
+]
+"share/cpp-project-foundation/template/tests" = [
+  "examples/hello-service/tests/*.cpp",
+]
+"share/cpp-project-foundation/template/quality" = [
+  "quality/baseline.json",
+  "quality/tools.json",
+]
+"share/cpp-project-foundation/template/quality/npm" = [
+  "quality/npm/package-lock.json",
+  "quality/npm/package.json",
+]
+"share/cpp-project-foundation/template/requirements" = [
+  "requirements/quality.txt",
+]
+"share/cpp-project-foundation/template/scripts" = [
+  "scripts/install_quality_tools.py",
+]
