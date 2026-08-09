@@ -1,0 +1,88 @@
+name: Reusable / C++ Security
+
+on:
+  workflow_call:
+    inputs:
+      project-directory:
+        type: string
+        default: "."
+      conan-profile:
+        type: string
+        required: true
+      conan-lockfile:
+        type: string
+        required: true
+      test-target:
+        type: string
+        required: true
+      fuzz-target:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cpp-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.conan2-security
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: OSV scan
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            ./
+      - name: Install security toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build
+          python3 -m pip install "conan==2.8.1"
+      - name: Resolve dependencies
+        working-directory: ${{ inputs.project-directory }}
+        run: |
+          conan install . --profile:host "${{ inputs.conan-profile }}" \
+            --profile:build "${{ inputs.conan-profile }}" \
+            --lockfile "${{ inputs.conan-lockfile }}" \
+            --output-folder=build/conan-security --build=missing
+      - name: ASan and UBSan
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          CC=clang CXX=clang++ cmake -S . -B build/asan -G Ninja \
+            -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          cmake --build build/asan --parallel 2 --target "${{ inputs.test-target }}"
+          ctest --test-dir build/asan --output-on-failure --timeout 120
+      - name: TSan
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: |
+          CC=clang CXX=clang++ cmake -S . -B build/tsan -G Ninja \
+            -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+          cmake --build build/tsan --parallel 2 --target "${{ inputs.test-target }}"
+          ctest --test-dir build/tsan --output-on-failure --timeout 120
+      - name: Bounded fuzz smoke
+        working-directory: ${{ inputs.project-directory }}
+        run: |
+          CC=clang CXX=clang++ cmake -S . -B build/fuzz -G Ninja \
+            -DENABLE_TESTING=OFF -DENABLE_FUZZ=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan-security/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/fuzz --parallel 2 --target "${{ inputs.fuzz-target }}"
+          mkdir -p runtime/fuzz
+          "build/fuzz/bin/${{ inputs.fuzz-target }}" -max_total_time=60 -timeout=10 \
+            -artifact_prefix=runtime/fuzz/

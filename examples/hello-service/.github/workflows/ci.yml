@@ -1,0 +1,15 @@
+name: Mainline / C++ CI
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cpp-ci:
+    uses: HoneyBury/cpp-project-foundation/.github/workflows/reusable-cpp-ci.yml@v0.1.0
+    with:
+      conan-profile: conan/profiles/linux-gcc-x64
+      conan-lockfile: conan/locks/linux-gcc-x64-release.lock
+      cmake-target: hello_service
+      test-target: hello_service_tests

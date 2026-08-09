@@ -1,0 +1,19 @@
+name: Setup C++ Project Foundation
+description: Install the pinned foundation CLI from this action revision.
+
+inputs:
+  python-version:
+    description: Python version provisioned by the caller.
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - name: Install foundation CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        venv="$RUNNER_TEMP/cpp-project-foundation-${{ inputs.python-version }}"
+        python3 -m venv "$venv"
+        "$venv/bin/pip" install --disable-pip-version-check "$GITHUB_ACTION_PATH/../../.."
+        echo "$venv/bin" >> "$GITHUB_PATH"

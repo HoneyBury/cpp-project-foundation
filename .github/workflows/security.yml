@@ -1,0 +1,122 @@
+name: Security / Dependency Sanitizer and Fuzz
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-vulnerability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Scan dependency manifests against OSV
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+  sanitizer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Configure dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build
+          python3 -m pip install "conan==2.8.1"
+          cd examples/hello-service
+          conan install . --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+      - name: Run ASan and UBSan tests
+        working-directory: examples/hello-service
+        run: |
+          CC=clang CXX=clang++ cmake -S . -B build/asan -G Ninja \
+            -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          cmake --build build/asan --parallel 2 --target hello_service_tests
+          ctest --test-dir build/asan --output-on-failure --timeout 60
+
+  thread-sanitizer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TSAN_OPTIONS: halt_on_error=1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Configure and run TSan tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build
+          python3 -m pip install "conan==2.8.1"
+          cd examples/hello-service
+          conan install . --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+          CC=clang CXX=clang++ cmake -S . -B build/tsan -G Ninja \
+            -DENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+          cmake --build build/tsan --parallel 2 --target hello_service_tests
+          ctest --test-dir build/tsan --output-on-failure --timeout 60
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build and run bounded fuzz target
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build
+          python3 -m pip install "conan==2.8.1"
+          cd examples/hello-service
+          conan install . --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+          CC=clang CXX=clang++ cmake -S . -B build/fuzz -G Ninja \
+            -DENABLE_TESTING=OFF -DENABLE_FUZZ=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/fuzz --parallel 2 --target fuzz_request_parser
+          mkdir -p runtime/fuzz
+          build/fuzz/bin/fuzz_request_parser -max_total_time=60 -timeout=10 \
+            -artifact_prefix=runtime/fuzz/
+      - name: Upload fuzz crashes
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-crashes-${{ github.run_id }}
+          path: examples/hello-service/runtime/fuzz/**
+          if-no-files-found: ignore

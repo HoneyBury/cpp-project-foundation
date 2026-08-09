@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "remotes": [
+    {
+      "name": "conancenter",
+      "url": "https://center2.conan.io"
+    }
+  ]
+}

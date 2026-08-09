@@ -1,0 +1,66 @@
+name: Release / Package Attest and Publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Build release subject
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 ninja-build
+          python3 -m pip install "conan==2.8.1" -e .
+          cd examples/hello-service
+          CC=gcc-13 CXX=g++-13 conan install . \
+            --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+          CC=gcc-13 CXX=g++-13 cmake -S . -B build/release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/release --parallel --target hello_service hello_service_tests
+          ctest --test-dir build/release --output-on-failure
+      - name: Package and independently verify
+        env:
+          FOUNDATION_CANDIDATE_REVISION: ${{ github.sha }}
+        run: |
+          cpp-foundation --manifest examples/hello-service/foundation.toml package --output-dir dist
+          archive=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          cpp-foundation verify-release --archive "$archive" --checksum "$archive.sha256"
+      - name: Attest archive provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Attest archive SBOM
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: dist/*.tar.gz
+          sbom-path: dist/*-sbom.spdx.json
+      - name: Publish immutable GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes
+      - name: Upload release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ github.run_id }}
+          path: dist/**
+          if-no-files-found: error

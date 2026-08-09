@@ -1,0 +1,77 @@
+name: Operations / Bounded Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      soak-seconds:
+        type: number
+        default: 120
+      soak-profile:
+        type: choice
+        options: [smoke, stability-2h, overnight-8h]
+        default: smoke
+      repetitions:
+        type: number
+        default: 3
+      runner:
+        type: string
+        default: '["self-hosted","Linux","X64"]'
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-operations:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: 600
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build reference service
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 ninja-build
+          python3 -m pip install "conan==2.8.1" -e .
+          cd examples/hello-service
+          CC=gcc-13 CXX=g++-13 conan install . \
+            --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+          CC=gcc-13 CXX=g++-13 cmake -S . -B build/release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/release --parallel --target hello_service
+      - name: Collect soak performance and ledger evidence
+        env:
+          FOUNDATION_CANDIDATE_REVISION: ${{ github.sha }}
+        run: |
+          case "${{ inputs.soak-profile }}" in
+            smoke) duration="${{ inputs.soak-seconds }}" ;;
+            stability-2h) duration=7200 ;;
+            overnight-8h) duration=28800 ;;
+          esac
+          mkdir -p runtime/evidence-inputs
+          cpp-foundation --manifest examples/hello-service/foundation.toml soak \
+            --duration-seconds "$duration" --interval-seconds 30 \
+            --output runtime/evidence-inputs/soak.json
+          cpp-foundation --manifest examples/hello-service/foundation.toml perf \
+            --repetitions "${{ inputs.repetitions }}" \
+            --minimum-ops-per-second 100000 --maximum-p99-ms 1 \
+            --output runtime/evidence-inputs/perf.json
+          cpp-foundation evidence --root runtime/evidence record --kind daily \
+            --record-id "run-${GITHUB_RUN_ID}" \
+            --summary runtime/evidence-inputs/soak.json \
+            --summary runtime/evidence-inputs/perf.json
+          cpp-foundation evidence --root runtime/evidence verify
+          cpp-foundation evidence --root runtime/evidence package \
+            --output runtime/evidence-package-${GITHUB_RUN_ID}.tar.gz
+      - name: Upload operations evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: operations-evidence-${{ github.run_id }}
+          path: runtime/**
+          if-no-files-found: error

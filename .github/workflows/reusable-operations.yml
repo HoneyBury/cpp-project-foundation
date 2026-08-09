@@ -1,0 +1,83 @@
+name: Reusable / C++ Operations Evidence
+
+on:
+  workflow_call:
+    inputs:
+      project-directory:
+        type: string
+        default: "."
+      manifest:
+        type: string
+        default: "foundation.toml"
+      conan-profile:
+        type: string
+        required: true
+      conan-lockfile:
+        type: string
+        required: true
+      cmake-target:
+        type: string
+        required: true
+      soak-profile:
+        type: string
+        default: "smoke"
+      runner:
+        type: string
+        default: '["self-hosted","Linux","X64"]'
+
+permissions:
+  contents: read
+
+jobs:
+  cpp-operations:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: 600
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Setup foundation CLI
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.1.0
+      - name: Build evidence target
+        working-directory: ${{ inputs.project-directory }}
+        run: |
+          python3 -m pip install "conan==2.8.1"
+          conan install . --profile:host "${{ inputs.conan-profile }}" \
+            --profile:build "${{ inputs.conan-profile }}" \
+            --lockfile "${{ inputs.conan-lockfile }}" \
+            --output-folder=build/conan --build=never --no-remote
+          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
+          cmake --build build/release --parallel --target "${{ inputs.cmake-target }}"
+      - name: Collect evidence
+        working-directory: ${{ inputs.project-directory }}
+        run: |
+          case "${{ inputs.soak-profile }}" in
+            smoke) duration=120 ;;
+            stability-2h) duration=7200 ;;
+            overnight-8h) duration=28800 ;;
+            *) echo "invalid soak profile" >&2; exit 2 ;;
+          esac
+          mkdir -p runtime/inputs
+          cpp-foundation --manifest "${{ inputs.manifest }}" soak \
+            --duration-seconds "$duration" --interval-seconds 30 --output runtime/inputs/soak.json
+          cpp-foundation --manifest "${{ inputs.manifest }}" perf \
+            --repetitions 3 --minimum-ops-per-second 100000 \
+            --maximum-p99-ms 1 --output runtime/inputs/perf.json
+          cpp-foundation evidence --root runtime/evidence record --kind daily \
+            --record-id "run-${GITHUB_RUN_ID}" --summary runtime/inputs/soak.json \
+            --summary runtime/inputs/perf.json
+          cpp-foundation evidence --root runtime/evidence package \
+            --output runtime/evidence-${GITHUB_RUN_ID}.tar.gz
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cpp-operations-${{ github.run_id }}
+          path: ${{ inputs.project-directory }}/runtime/**
+          if-no-files-found: error
