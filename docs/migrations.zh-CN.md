@@ -45,3 +45,12 @@ workflow tag。
 
 无需迁移生成文件或 manifest。0.3.1 替换了 0.3.0 中不可移植的 wheel 下载校验文件；
 请更新 foundation workflow 和安装 tag。
+
+## 0.3.1 升级至 0.4.0
+
+- 增加生成的 `.github/dependabot.yml`。它跟踪可复用 Actions 和固定的 Python 工具，
+  同时将 Docker 更新限制在受支持的 Ubuntu 24.04 发布线。
+- Operations job 在现有 JSON 证据之外增加 Markdown summary；无需迁移 manifest 或
+  evidence schema。
+- PyPI 发布是可选能力，需要先完成 [publishing.zh-CN.md](publishing.zh-CN.md) 中的
+  trusted-publisher 外部配置；通过 GitHub tag 安装仍然受支持。

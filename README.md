@@ -1,6 +1,7 @@
 # C++ Project Foundation
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.md) |
+[简体中文](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.zh-CN.md)
 
 `cpp-project-foundation` is a manifest-driven engineering foundation for C++ services.
 It extracts reusable build, dependency, security, release, deployment and operations
@@ -23,7 +24,7 @@ Install an immutable release with `pipx` and generate a service from the maintai
 reference template:
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.1"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.4.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -100,6 +101,7 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - application-defined external canary with fixed-window aggregation
 - bounded smoke, 2h and 8h soak profiles
 - repeated performance gates with explicit throughput and P99 thresholds
+- operations evidence rendered directly in the GitHub job summary
 - scheduled IWYU, cppcheck, Hadolint, Markdown and CMake quality checks
 - clean-build time, release binary size and repeat-build digest budgets
 
@@ -149,7 +151,7 @@ shorter execution limit.
   script defaults to zero approvals for a single maintainer; team repositories should pass
   `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.3.1` release tag.
+  `HoneyBury/cpp-project-foundation@v0.4.0` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.
@@ -164,6 +166,15 @@ The independently governed
 exercises generation, pull-request gates, release attestations, Compose runtime and
 operations profiles without sharing this repository's source tree.
 
-See [foundation-contract.md](docs/foundation-contract.md),
-[compatibility.md](docs/compatibility.md), [migrations.md](docs/migrations.md),
-[architecture.md](docs/architecture.md) and [operations.md](docs/operations.md).
+Python publishing uses a separately permissioned PyPI trusted-publisher workflow. See
+[publishing.md](docs/publishing.md) for the one-time external identity configuration and
+mandatory dry-run.
+
+See
+[foundation-contract.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/foundation-contract.md),
+[compatibility.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.md),
+[migrations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.md),
+[publishing.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/publishing.md),
+[architecture.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/architecture.md)
+and
+[operations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.md).

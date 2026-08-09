@@ -27,6 +27,7 @@ from foundation.operations import (
     verify_backup,
 )
 from foundation.release import package_release, verify_release
+from foundation.reporting import render_operations_report
 from foundation.sbom import conan_lock_to_spdx
 from foundation.scaffold import initialize_project
 from foundation.template_diff import compare_template
@@ -165,6 +166,7 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue((output / ".clang-format").is_file())
             self.assertTrue((output / ".clang-tidy").is_file())
             self.assertTrue((output / ".gitignore").is_file())
+            self.assertTrue((output / ".github/dependabot.yml").is_file())
             self.assertTrue((output / "README.md").is_file())
             self.assertTrue((output / ".iwyu.imp").is_file())
             self.assertTrue((output / "quality/baseline.json").is_file())
@@ -175,7 +177,7 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.3.1", workflow)
+            self.assertIn("@v0.4.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
@@ -187,6 +189,9 @@ class ManifestTests(unittest.TestCase):
             self.assertIn(
                 "coverage-profile: conan/profiles/linux-gcc-x64", quality_workflow
             )
+            dependabot = (output / ".github/dependabot.yml").read_text(encoding="utf-8")
+            self.assertIn('directory: "/deploy"', dependabot)
+            self.assertIn('"version-update:semver-minor"', dependabot)
             generated_text = "\n".join(
                 path.read_text(encoding="utf-8")
                 for path in output.rglob("*")
@@ -290,6 +295,23 @@ class ManifestTests(unittest.TestCase):
         reviews = policy["required_pull_request_reviews"]
         self.assertEqual(reviews["required_approving_review_count"], 0)
         self.assertFalse(reviews["require_last_push_approval"])
+
+    def test_pypi_workflow_separates_verification_and_oidc_publish(self) -> None:
+        workflow = Path(".github/workflows/publish-pypi.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("default: false", workflow)
+        self.assertIn("needs: prepare", workflow)
+        self.assertIn("name: pypi", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("permissions: {}", workflow)
+        self.assertIn(
+            "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33",
+            workflow,
+        )
+        self.assertIn("skip-existing: false", workflow)
+        self.assertNotIn("password:", workflow)
+        self.assertEqual(workflow.count("actions/checkout@"), 1)
 
 
 class ReleaseAndDeploymentTests(unittest.TestCase):
@@ -451,6 +473,26 @@ class OperationsTests(unittest.TestCase):
                 maximum_p99_ms=1,
             )
             self.assertTrue(perf["overall_pass"])
+
+            report_path = root / "operations.md"
+            report = render_operations_report(
+                root / "soak.json", root / "perf.json", report_path
+            )
+            self.assertTrue(report["overall_pass"])
+            self.assertEqual(report["metrics"]["sample_count"], 5)
+            markdown = report_path.read_text(encoding="utf-8")
+            self.assertIn("**Result: PASS**", markdown)
+            self.assertIn("200,000.000 ops/s", markdown)
+
+            invalid_soak = json.loads((root / "soak.json").read_text())
+            invalid_soak["sample_count"] = 99
+            atomic_json(root / "invalid-soak.json", invalid_soak)
+            with self.assertRaises(FoundationError):
+                render_operations_report(
+                    root / "invalid-soak.json",
+                    root / "perf.json",
+                    root / "invalid.md",
+                )
 
 
 if __name__ == "__main__":

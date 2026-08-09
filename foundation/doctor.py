@@ -41,6 +41,7 @@ def run_doctor(
         ".github/workflows/ci.yml",
         ".github/workflows/quality.yml",
         ".github/workflows/release.yml",
+        ".github/dependabot.yml",
         "quality/baseline.json",
     )
     missing = [

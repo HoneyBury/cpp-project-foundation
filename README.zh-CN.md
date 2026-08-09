@@ -1,6 +1,7 @@
 # C++ Project Foundation
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.md) |
+[简体中文](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.zh-CN.md)
 
 `cpp-project-foundation` 是一个由清单驱动的 C++ 服务工程基础设施。它将构建、
 依赖、安全、发布、部署和运维契约抽取为可复用能力，同时不引入任何具体产品的
@@ -22,7 +23,7 @@
 使用 `pipx` 安装不可变发布版本，然后通过持续维护的参考模板生成服务：
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.3.1"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.4.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -97,6 +98,7 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 - 由应用定义的外部 canary 和固定窗口聚合
 - 有界 smoke、2h 和 8h soak profile
 - 使用显式吞吐与 P99 阈值的重复性能门禁
+- 在 GitHub job summary 中直接呈现运维证据
 - 定时运行 IWYU、cppcheck、Hadolint、Markdown 和 CMake 质量检查
 - 干净构建耗时、发布二进制体积和重复构建摘要预算
 
@@ -143,7 +145,7 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
   `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。脚本针对单维护者
   默认要求零审批；团队仓库应传入 `--required-approvals 1` 或更高值，并为每个精确检查
   名称重复传入 `--required-check`。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.3.1` 引用公开的
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.4.0` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。
@@ -157,7 +159,14 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
 本仓库源码树的情况下验证项目生成、PR 门禁、发布 attestation、Compose 运行时和
 operations profile。
 
-进一步阅读：[foundation-contract.md](docs/foundation-contract.md)、
-[compatibility.zh-CN.md](docs/compatibility.zh-CN.md)、
-[migrations.zh-CN.md](docs/migrations.zh-CN.md)、[architecture.md](docs/architecture.md)
-和 [operations.md](docs/operations.md)。
+Python 发布使用独立权限的 PyPI trusted-publisher workflow。一次性外部身份配置和
+强制 dry-run 参见 [publishing.zh-CN.md](docs/publishing.zh-CN.md)。
+
+进一步阅读：
+[foundation-contract.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/foundation-contract.md)、
+[compatibility.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.zh-CN.md)、
+[migrations.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.zh-CN.md)、
+[publishing.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/publishing.zh-CN.md)、
+[architecture.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/architecture.md)
+和
+[operations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.md)。

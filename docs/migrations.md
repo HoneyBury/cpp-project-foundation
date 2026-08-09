@@ -46,3 +46,12 @@ There is no manifest schema migration in 0.3.0; `schema_version = 1` remains cur
 
 No generated or manifest migration is required. Version 0.3.1 replaces the non-portable
 downloadable wheel checksum from 0.3.0; update foundation workflow and installation tags.
+
+## 0.3.1 to 0.4.0
+
+- Add the generated `.github/dependabot.yml`. It tracks reusable Actions and pinned Python
+  tools while keeping Docker updates on the supported Ubuntu 24.04 release line.
+- Operations jobs now publish a Markdown summary in addition to the existing JSON evidence;
+  no manifest or evidence schema migration is required.
+- PyPI publishing is optional and requires the external trusted-publisher configuration in
+  [publishing.md](publishing.md). GitHub tag installation remains supported.

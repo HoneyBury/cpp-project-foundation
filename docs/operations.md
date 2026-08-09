@@ -46,6 +46,10 @@ whose power, network and resource isolation are controlled. The workflow rejects
 request without a `self-hosted` runner label. Preserve interrupted results as failures
 rather than combining partial windows.
 
+The reusable operations workflow renders duration, samples, failures, check latency,
+throughput and benchmark P99 into the GitHub job summary. The Markdown view is an index;
+the uploaded JSON and content-addressed evidence package remain the authoritative record.
+
 ## Evidence retention
 
 Create daily/weekly/incident/final records from raw summaries, verify the ledger, package
