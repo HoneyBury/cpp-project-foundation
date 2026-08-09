@@ -45,7 +45,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Setup foundation CLI
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.1
       - name: Build release target
         working-directory: ${{ inputs.project-directory }}
         run: |
@@ -64,24 +64,29 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
           cmake --build build/release --parallel --target "${{ inputs.cmake-target }}"
       - name: Package and verify
+        id: package
         working-directory: ${{ inputs.project-directory }}
         env:
           FOUNDATION_CANDIDATE_REVISION: ${{ github.sha }}
         run: |
           cpp-foundation --manifest "${{ inputs.manifest }}" package --output-dir dist
-          archive=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          archive=$(find "$PWD/dist" -maxdepth 1 -name '*.tar.gz' -print -quit)
+          sbom="$archive-sbom.spdx.json"
+          test -f "$archive" && test -f "$sbom"
           cpp-foundation verify-release --archive "$archive" --checksum "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "sbom=$sbom" >> "$GITHUB_OUTPUT"
       - name: Attest provenance
         if: startsWith(github.ref, 'refs/tags/v') && (github.event.repository.visibility == 'public' || inputs.enable-attestations)
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
-          subject-path: ${{ inputs.project-directory }}/dist/*.tar.gz
+          subject-path: ${{ steps.package.outputs.archive }}
       - name: Attest SBOM
         if: startsWith(github.ref, 'refs/tags/v') && (github.event.repository.visibility == 'public' || inputs.enable-attestations)
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
-          subject-path: ${{ inputs.project-directory }}/dist/*.tar.gz
-          sbom-path: ${{ inputs.project-directory }}/dist/*-sbom.spdx.json
+          subject-path: ${{ steps.package.outputs.archive }}
+          sbom-path: ${{ steps.package.outputs.sbom }}
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/v') && inputs.publish-release
         env:

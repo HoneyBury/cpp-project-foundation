@@ -34,7 +34,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup foundation CLI
-        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.0
+        uses: HoneyBury/cpp-project-foundation/.github/actions/setup-foundation@v0.2.1
       - name: Generate scan-ready Conan SBOM
         working-directory: ${{ inputs.project-directory }}
         run: |

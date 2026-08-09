@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTION_RE = re.compile(r"^\s*uses:\s*([^#\s]+)@([^\s#]+)", re.MULTILINE)
+SBOM_PATH_RE = re.compile(r"^\s*sbom-path:\s*([^#\s]+)", re.MULTILINE)
 SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 FOUNDATION_VERSION_RE = re.compile(r"v\d+\.\d+\.\d+\Z")
 
@@ -59,6 +60,12 @@ def main() -> int:
         text = workflow.read_text(encoding="utf-8")
         if "permissions:" not in text:
             errors.append(f"workflow has no explicit permissions: {workflow.name}")
+        for sbom_path in SBOM_PATH_RE.findall(text):
+            if "*" in sbom_path or "?" in sbom_path:
+                errors.append(
+                    f"attestation sbom-path must be an exact file: "
+                    f"{workflow.name}: {sbom_path}"
+                )
         for action, revision in ACTION_RE.findall(text):
             if action.startswith("./"):
                 continue
