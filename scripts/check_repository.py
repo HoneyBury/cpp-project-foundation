@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 
@@ -26,7 +27,8 @@ def main() -> int:
     for value in required:
         if not (ROOT / value).is_file():
             errors.append(f"missing governance file: {value}")
-    for workflow in sorted((ROOT / ".github/workflows").glob("*.yml")):
+    workflows = sorted(ROOT.glob("**/.github/workflows/*.yml"))
+    for workflow in workflows:
         text = workflow.read_text(encoding="utf-8")
         if "permissions:" not in text:
             errors.append(f"workflow has no explicit permissions: {workflow.name}")
@@ -41,6 +43,12 @@ def main() -> int:
                 errors.append(
                     f"action is not pinned to a full SHA: {action}@{revision}"
                 )
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    for requirement in pyproject["build-system"]["requires"]:
+        if "==" not in requirement:
+            errors.append(
+                f"Python build dependency is not exactly pinned: {requirement}"
+            )
     for lockfile in sorted(ROOT.glob("**/conan/locks/*.lock")):
         lock = json.loads(lockfile.read_text(encoding="utf-8"))
         for reference in lock.get("requires", []):
