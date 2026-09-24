@@ -30,7 +30,7 @@ After an immutable GitHub release exists, run the safe default path:
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.4.0 \
+  -f release-tag=v0.4.1 \
   -f publish=false
 ```
 
@@ -45,7 +45,7 @@ Only after the trusted publisher fields match and the dry-run succeeds:
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.4.0 \
+  -f release-tag=v0.4.1 \
   -f publish=true
 ```
 
@@ -56,5 +56,5 @@ new GitHub release.
 After PyPI reports the release, users can install it without a source checkout:
 
 ```bash
-pipx install "cpp-project-foundation==0.4.0"
+pipx install "cpp-project-foundation==0.4.1"
 ```

@@ -29,7 +29,7 @@ GitHub 仓库还必须存在名为 `pypi` 的 environment。不要添加 PyPI AP
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.4.0 \
+  -f release-tag=v0.4.1 \
   -f publish=false
 ```
 
@@ -43,7 +43,7 @@ workflow 必须验证 tag、包版本、wheel checksum、安装后的 CLI、生�
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.4.0 \
+  -f release-tag=v0.4.1 \
   -f publish=true
 ```
 
@@ -53,5 +53,5 @@ PyPI 分发资产不可变。不能启用 `skip-existing`、替换 Git tag 或�
 PyPI 显示该发布后，用户无需源码 checkout 即可安装：
 
 ```bash
-pipx install "cpp-project-foundation==0.4.0"
+pipx install "cpp-project-foundation==0.4.1"
 ```
