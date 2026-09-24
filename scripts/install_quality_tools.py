@@ -9,6 +9,7 @@ import platform
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -138,7 +139,7 @@ def main() -> int:
     bin_dir = args.tools_dir / "bin"
     bin_dir.mkdir(exist_ok=True)
     if not (args.venv / "bin/python").is_file():
-        subprocess.run(["python3", "-m", "venv", str(args.venv)], check=True)
+        subprocess.run([sys.executable, "-m", "venv", str(args.venv)], check=True)
     subprocess.run(
         [
             str(args.venv / "bin/pip"),

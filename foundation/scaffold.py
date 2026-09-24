@@ -36,6 +36,7 @@ QUALITY_ASSETS = (
     "quality/tools.json",
     "requirements/quality.txt",
     "ruff.toml",
+    "scripts/bootstrap_dev.py",
     "scripts/install_quality_tools.py",
 )
 
@@ -97,6 +98,9 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         text = text.replace("Hello Service", display_name)
         text = text.replace("hello service", name)
         text = text.replace("namespace hello", f"namespace {identifier}")
+        text = text.replace(
+            "namespace service = hello;", f"namespace service = {identifier};"
+        )
         text = text.replace("hello::", f"{identifier}::")
         text = text.replace('"hello/', f'"{identifier}/')
         if path.relative_to(output).as_posix() in {

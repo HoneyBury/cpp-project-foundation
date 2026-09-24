@@ -104,6 +104,13 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ## 常用命令
 
+首次检出仓库时，使用 Python 3.11 或更高版本初始化本地开发环境：
+
+```bash
+python3 scripts/bootstrap_dev.py
+source .venv/bin/activate
+```
+
 ```bash
 cpp-foundation --manifest foundation.toml validate
 cpp-foundation --manifest foundation.toml doctor --root .
