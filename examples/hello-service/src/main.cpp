@@ -16,6 +16,8 @@
 
 namespace {
 
+namespace service = hello;
+
 volatile std::sig_atomic_t running = 1;
 
 void stop(int) {
@@ -49,17 +51,17 @@ int serve() {
         }
         char buffer[4096]{};
         const auto count = ::read(client, buffer, sizeof(buffer) - 1);
-        const auto kind = hello::parse_request(
+        const auto kind = service::parse_request(
             count > 0 ? std::string_view(buffer, static_cast<std::size_t>(count))
                       : std::string_view{});
         ++requests;
         std::string body;
         int status = 200;
-        if (kind == hello::RequestKind::health) {
+        if (kind == service::RequestKind::health) {
             body = "ok\n";
-        } else if (kind == hello::RequestKind::metrics) {
-            body = fmt::format("# TYPE hello_requests_total counter\nhello_requests_total {}\n",
-                               requests);
+        } else if (kind == service::RequestKind::metrics) {
+            constexpr auto metric_name = "hello_requests_total";
+            body = fmt::format("# TYPE {} counter\n{} {}\n", metric_name, metric_name, requests);
         } else {
             status = 404;
             body = "not found\n";
@@ -87,8 +89,8 @@ int run(int argc, char** argv) {
         const auto start = std::chrono::steady_clock::now();
         std::uint64_t health = 0;
         for (std::uint64_t index = 0; index < iterations; ++index) {
-            health +=
-                hello::parse_request("GET /health HTTP/1.1\r\n") == hello::RequestKind::health;
+            const auto health_request = service::parse_request("GET /health HTTP/1.1\r\n");
+            health += health_request == service::RequestKind::health;
         }
         const auto elapsed =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();

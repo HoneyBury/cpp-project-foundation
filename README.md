@@ -107,6 +107,14 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ## Common commands
 
+On a fresh checkout, initialize the local development environment with Python 3.11 or
+newer:
+
+```bash
+python3 scripts/bootstrap_dev.py
+source .venv/bin/activate
+```
+
 ```bash
 cpp-foundation --manifest foundation.toml validate
 cpp-foundation --manifest foundation.toml doctor --root .

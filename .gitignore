@@ -1,5 +1,6 @@
 .DS_Store
 .venv/
+.venv-*/
 .conan2/
 .sccache/
 .tools/

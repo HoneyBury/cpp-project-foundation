@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from foundation.build_quality import check_build_artifacts
+from foundation.cli import build_parser
 from foundation.common import FoundationError, atomic_json
 from foundation.deployment import DeploymentManager
 from foundation.doctor import run_doctor
@@ -80,6 +81,16 @@ benchmark = ["build/release/bin/sample-service", "--benchmark"]
 
 
 class ManifestTests(unittest.TestCase):
+    def test_cli_parser_exposes_contract_commands(self) -> None:
+        parser = build_parser()
+        for command in ("validate", "doctor", "package", "quality"):
+            parsed = parser.parse_args([command])
+            self.assertEqual(parsed.command, command)
+
+    def test_bootstrap_script_rejects_unsupported_python(self) -> None:
+        script = Path("scripts/bootstrap_dev.py").read_text(encoding="utf-8")
+        self.assertIn("Python 3.11 or newer", script)
+
     def test_build_quality_enforces_size_time_and_reproducibility(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
@@ -125,6 +136,14 @@ class ManifestTests(unittest.TestCase):
             reference = sbom["packages"][0]["externalRefs"][0]
             self.assertEqual(reference["referenceLocator"], "pkg:conan/fmt@11.2.0")
 
+    def test_conan_lock_sbom_rejects_invalid_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            lockfile = root / "conan.lock"
+            atomic_json(lockfile, {"version": "0.5", "requires": ["invalid"]})
+            with self.assertRaises(FoundationError):
+                conan_lock_to_spdx(lockfile, root / "dependencies.spdx.json")
+
     def test_reference_manifest_is_valid(self) -> None:
         manifest = load_manifest(Path("examples/hello-service/foundation.toml"))
         self.assertEqual(manifest.name, "hello-service")
@@ -162,6 +181,14 @@ class ManifestTests(unittest.TestCase):
                 "    order_service PROPERTIES RUNTIME_OUTPUT_DIRECTORY",
                 (output / "CMakeLists.txt").read_text(),
             )
+            self.assertIn(
+                "namespace service = order_service;",
+                (output / "src/main.cpp").read_text(),
+            )
+            self.assertIn(
+                "namespace service = order_service;",
+                (output / "tests/request_parser_test.cpp").read_text(),
+            )
             self.assertFalse((output / "build").exists())
             self.assertTrue((output / ".clang-format").is_file())
             self.assertTrue((output / ".clang-tidy").is_file())
@@ -171,6 +198,7 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue((output / ".iwyu.imp").is_file())
             self.assertTrue((output / "quality/baseline.json").is_file())
             self.assertTrue((output / "ruff.toml").is_file())
+            self.assertTrue((output / "scripts/bootstrap_dev.py").is_file())
             self.assertTrue((output / "scripts/install_quality_tools.py").is_file())
             self.assertTrue((output / "deploy/order-service.service").is_file())
             self.assertTrue(

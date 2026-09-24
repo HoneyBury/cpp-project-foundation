@@ -95,4 +95,5 @@ packages = ["foundation"]
 ]
 "share/cpp-project-foundation/template/scripts" = [
   "scripts/install_quality_tools.py",
+  "scripts/bootstrap_dev.py",
 ]

@@ -5,7 +5,7 @@
 ## Supported baseline
 
 The following combination is continuously exercised and is the only production baseline
-for the 0.3 release line:
+for the 0.4 release line:
 
 | Layer | Supported baseline |
 | --- | --- |

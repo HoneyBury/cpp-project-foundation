@@ -3,6 +3,21 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## Unreleased
+
+### Added
+
+- Added a Python 3.11+ development bootstrap script and a clear runtime version error.
+- Added CLI, invalid-SBOM and generated-project regression coverage.
+
+### Fixed
+
+- Kept generated C++ source quality clean for long service names even when the formatter
+  is not available during scaffolding.
+- Ensured quality-tool virtual environments use the Python interpreter that launched the
+  installer.
+- Updated compatibility documentation to the 0.4 support line.
+
 ## 0.4.0 - 2026-08-10
 
 ### Added
