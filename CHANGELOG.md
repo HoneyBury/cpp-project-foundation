@@ -3,7 +3,7 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
-## Unreleased
+## 0.4.1 - 2026-09-24
 
 ### Added
 
