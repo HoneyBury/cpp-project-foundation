@@ -69,3 +69,17 @@ downloadable wheel checksum from 0.3.0; update foundation workflow and installat
   mode drift. Rebuild release archives with 0.5.0 rather than repacking an older archive.
 - Update every reusable workflow reference to `v0.5.0`, then run `doctor`,
   `template-diff`, the full PR gates and an operations smoke profile.
+
+## 0.5.0 to 0.6.0
+
+- Manifest and evidence schema versions remain 1; no data rewrite is required.
+- Add `deploy recover` to host runbooks. An interrupted `started` transaction now blocks
+  activation, upgrade and rollback until recovery restores the pre-transaction release.
+- Evidence packaging is now closed-world. Remove unreferenced files and links from an
+  evidence root, and investigate rather than overwrite any corrupt content-addressed file.
+- Release manifests now include a deterministic runtime payload digest. Full archive bytes
+  may differ when provenance run context or SPDX creation time differs.
+- `doctor --probe-observability` performs opt-in HTTP checks of configured health and
+  metrics URLs; default `doctor` remains network-free.
+- Update every reusable workflow reference to `v0.6.0`, then run the full PR gates and an
+  operations smoke profile.

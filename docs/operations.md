@@ -5,7 +5,9 @@
 Build on an admitted Linux x64 runner and package the exact checked-out candidate. The
 archive verifier rejects checksum mismatch, multiple archive roots, duplicate members,
 links, special files, absolute paths, path traversal, missing or unlisted files, executable
-mode changes and provenance mismatch.
+mode changes and provenance mismatch. It also validates the embedded SPDX identity and
+checksums. `release-manifest.json` records a deterministic digest of the runtime payload;
+the complete archive can still vary because provenance contains run context and time.
 
 ## Deployment
 
@@ -19,6 +21,18 @@ cpp-foundation deploy --root /opt/example --state-root /var/lib/example status
 cpp-foundation deploy --root /opt/example --state-root /var/lib/example verify
 cpp-foundation deploy --root /opt/example --state-root /var/lib/example rollback
 ```
+
+If `status` reports an unfinished transaction after host or process interruption, do not
+start another activation. Inspect the transaction and then restore the pre-transaction
+deployment:
+
+```bash
+cpp-foundation deploy --root /opt/example --state-root /var/lib/example recover
+```
+
+Recovery deactivates the candidate, atomically restores the old `current` and `previous`
+pointers, and re-runs the previous activation hook. A failed recovery remains unfinished
+and blocks later activations so it can be retried after the underlying fault is corrected.
 
 Do not place application data, credentials, backups or evidence beneath the immutable
 release root. The deployment manager never deletes protected state.
@@ -37,6 +51,14 @@ Verification and restore require an identity. Restore refuses an existing destin
 that drills cannot overwrite live state.
 
 ## Canary and stability
+
+Manifest observability URLs are network-free during ordinary diagnostics. Probe them
+explicitly when the service is expected to be reachable:
+
+```bash
+cpp-foundation --manifest foundation.toml doctor --root . \
+  --probe-observability --probe-timeout 5
+```
 
 Schedule canary `run` on a host outside the production service host at each natural UTC
 minute. Samples are create-only by minute. Aggregation counts missing minutes as failures,
@@ -57,4 +79,6 @@ the uploaded JSON and content-addressed evidence package remain the authoritativ
 
 Create daily/weekly/incident/final records from raw summaries, verify the ledger, package
 it and copy it off-host. The package result remains incomplete until the destination
-verifies the archive checksum and records its independent host/storage identity.
+verifies the archive checksum and records its independent host/storage identity. Evidence
+verification is closed-world and rejects malformed records, path escape, links, special
+files, corrupt reused snapshots and unreferenced files.

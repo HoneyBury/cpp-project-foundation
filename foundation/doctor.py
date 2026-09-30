@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import math
 import platform
 import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from . import __version__
 from .manifest import load_manifest
@@ -21,7 +24,12 @@ def _check(name: str, status: str, detail: str) -> dict[str, str]:
 
 
 def run_doctor(
-    root: Path, manifest_path: Path, *, strict_tools: bool = False
+    root: Path,
+    manifest_path: Path,
+    *,
+    strict_tools: bool = False,
+    probe_observability: bool = False,
+    probe_timeout: float = 5.0,
 ) -> dict[str, Any]:
     project_root = root.resolve()
     path = (
@@ -138,6 +146,55 @@ def run_doctor(
                 f"present: {', '.join(built)}" if built else "not built yet",
             )
         )
+
+        if probe_observability:
+            if (
+                isinstance(probe_timeout, bool)
+                or not isinstance(probe_timeout, (int, float))
+                or not math.isfinite(probe_timeout)
+                or probe_timeout <= 0
+            ):
+                checks.append(
+                    _check(
+                        "observability:configuration",
+                        "fail",
+                        "probe timeout must be positive",
+                    )
+                )
+            else:
+                for name in ("health", "metrics"):
+                    url = manifest.observability.get(f"{name}_url")
+                    if not url:
+                        checks.append(
+                            _check(
+                                f"observability:{name}",
+                                "fail",
+                                f"observability.{name}_url is not configured",
+                            )
+                        )
+                        continue
+                    try:
+                        request = Request(
+                            str(url),
+                            headers={"User-Agent": f"cpp-foundation/{__version__}"},
+                        )
+                        with urlopen(request, timeout=probe_timeout) as response:
+                            status = response.getcode()
+                            body = response.read(1024 * 1024 + 1)
+                        if status < 200 or status >= 300:
+                            raise OSError(f"HTTP status {status}")
+                        if name == "metrics" and not body.strip():
+                            raise OSError("response body is empty")
+                    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+                        checks.append(_check(f"observability:{name}", "fail", str(exc)))
+                    else:
+                        checks.append(
+                            _check(
+                                f"observability:{name}",
+                                "pass",
+                                f"HTTP {status}; {len(body)} bytes",
+                            )
+                        )
 
     counts = {
         status: sum(item["status"] == status for item in checks)

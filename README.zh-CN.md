@@ -23,7 +23,7 @@
 使用 `pipx` 安装不可变发布版本，然后通过持续维护的参考模板生成服务：
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.5.0"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.6.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -37,7 +37,7 @@ CI workflow 前，应审查 manifest，并针对已批准的依赖图重新生�
 
 `foundation.toml` 是通用平台与应用代码之间的边界。它声明构建目标、发布输入和
 失败即关闭的运维 hook。工具不会猜测服务名称，也不会在观察到失败后自动修改阈值。
-0.5 版本会严格校验该契约：未知字段、类型错误的数组、无效可观测性 URL 和非正数
+0.6 版本会严格校验该契约：未知字段、类型错误的数组、无效可观测性 URL 和非正数
 hook 超时都会在 `validate` 阶段失败。
 
 ```toml
@@ -83,18 +83,19 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ### P1：不可变发布与部署
 
-- 安全的运行时归档、SHA-256、SPDX 2.3 SBOM 和候选 provenance
+- 安全的运行时归档、SHA-256、确定性 payload 摘要、经过验证的 SPDX 2.3 SBOM 和候选
+  provenance
 - GitHub artifact attestation 和不可变 tag 发布
 - 归档路径穿越防护和摘要校验
 - 幂等安装、串行化部署操作、升级、回滚、状态和验证
-- 失败候选清理和自动恢复上一部署
+- 失败候选清理、自动回滚和显式的中断事务恢复
 - 仅包含运行时的 Dockerfile、加固的 Compose、systemd 和 Prometheus/Grafana 参考配置
 - GCC 13 与 Clang 18 兼容性构建、CodeQL 和覆盖率阈值
 - 针对 Actions、Python 工具和 Docker 基础镜像的 Dependabot 策略
 
 ### P2：运维证据
 
-- 只创建不覆盖的证据记录，以及内容寻址的原始摘要
+- 只创建不覆盖的证据记录，以及封闭清单、内容寻址的原始摘要
 - 用于异地主机保留的证据包校验
 - 默认使用 age 加密的备份创建、校验和隔离恢复
 - 由应用定义的外部 canary 和固定窗口聚合
@@ -117,6 +118,7 @@ source .venv/bin/activate
 cpp-foundation --manifest foundation.toml validate
 cpp-foundation --manifest foundation.toml doctor --root .
 cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
+cpp-foundation --manifest foundation.toml doctor --root . --probe-observability
 cpp-foundation --manifest foundation.toml template-diff --root .
 cpp-foundation quality --root . --mode deep --fix
 cpp-foundation quality --root . --mode fast
@@ -130,6 +132,7 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   --checksum /tmp/project-v0.1.0-linux-x64.tar.gz.sha256
 sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   activate --deployment-id <deployment-id>
+sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project recover
 ```
 
 运行本地质量命令前，安装仓库固定版本的质量工具集：
@@ -154,7 +157,7 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
   `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。脚本针对单维护者
   默认要求零审批；团队仓库应传入 `--required-approvals 1` 或更高值，并为每个精确检查
   名称重复传入 `--required-check`。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.5.0` 引用公开的
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.6.0` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。

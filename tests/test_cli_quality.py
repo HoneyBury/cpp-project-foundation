@@ -40,7 +40,17 @@ class CliDispatchTests(unittest.TestCase):
             )
             initialize.assert_called_once()
             self.assertTrue(cli.execute(parsed("validate"))["overall_pass"])
-            self.assertIs(cli.execute(parsed("doctor")), result)
+            self.assertIs(
+                cli.execute(
+                    parsed(
+                        "doctor",
+                        "--probe-observability",
+                        "--probe-timeout",
+                        "2",
+                    )
+                ),
+                result,
+            )
             self.assertIs(cli.execute(parsed("template-diff")), result)
             self.assertTrue(
                 cli.execute(parsed("export-env", "--github-env", "environment"))[
@@ -61,14 +71,28 @@ class CliDispatchTests(unittest.TestCase):
                 result,
             )
             verify.assert_called_once()
-            doctor.assert_called_once()
+            doctor.assert_called_once_with(
+                Path("."),
+                Path("foundation.toml"),
+                strict_tools=False,
+                probe_observability=True,
+                probe_timeout=2.0,
+            )
             template.assert_called_once()
 
     def test_deployment_evidence_and_backup_commands_dispatch(self) -> None:
         result = {"overall_pass": True}
         manager = MagicMock()
         manager.locked.return_value.__enter__.return_value = None
-        for method in ("install", "deploy", "upgrade", "rollback", "status", "verify"):
+        for method in (
+            "install",
+            "deploy",
+            "upgrade",
+            "rollback",
+            "recover",
+            "status",
+            "verify",
+        ):
             getattr(manager, method).return_value = result
         with patch.object(cli, "_manager", return_value=manager):
             common = ("deploy", "--root", "opt", "--state-root", "state")
@@ -90,7 +114,7 @@ class CliDispatchTests(unittest.TestCase):
                     cli.execute(parsed(*common, command, "--deployment-id", "v1")),
                     result,
                 )
-            for command in ("rollback", "status", "verify"):
+            for command in ("rollback", "recover", "status", "verify"):
                 self.assertIs(cli.execute(parsed(*common, command)), result)
 
         with (

@@ -19,13 +19,14 @@ generated C++ project
       |     CMake + Conan lock + CTest + sanitizer + fuzz
       |
       +-- P1 release producer
-      |     archive + SHA256 + SPDX + provenance + attestation
+      |     archive + SHA256 + payload digest + SPDX + provenance + attestation
       |                         |
       |                         v
       |                 deployment manager
       |            install -> activate -> verify
       |                         |
       |                failure -> automatic rollback
+      |                interruption -> explicit recovery
       |
       `-- P2 application hooks
             canary + soak + perf + backup + evidence ledger
@@ -47,4 +48,6 @@ The deployment tree separates immutable releases, deployment records and mutable
 
 Deployment commands take an exclusive file lock. Symlink changes are atomic. Failed
 candidate activation runs candidate cleanup, restores the previous pointer and invokes
-the previous activation hook. Transaction records retain the failure and recovery result.
+the previous activation hook. A started transaction blocks later activation until
+`deploy recover` deactivates the candidate, restores both pointers and reactivates the
+previous release. Transaction records retain the failure and recovery result.
