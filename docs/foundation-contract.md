@@ -8,7 +8,7 @@ operation commands.
 
 ## Supported setup
 
-Version 0.6 is tested for this production setup:
+Version 0.7 is tested for this production setup:
 
 - Ubuntu 24.04 on x86-64;
 - C++20 with GCC 13;
@@ -16,6 +16,7 @@ Version 0.6 is tested for this production setup:
 - CMake 3.21 or newer, Ninja and Conan 2.8.1;
 - GitHub Actions using `ubuntu-24.04` runners;
 - Python 3.11 or newer for the command-line tool.
+- Node.js 22 or newer and npm for the optional source-quality tools.
 
 Other systems may work for development, but they need their own build and operation tests
 before being treated as production-ready.

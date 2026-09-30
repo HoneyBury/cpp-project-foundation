@@ -5,7 +5,7 @@ from conan import ConanFile
 
 class HelloServiceConan(ConanFile):
     name = "hello_service_workspace"
-    version = "0.6.0"
+    version = "0.7.0"
     package_type = "application"
     settings = "os", "arch", "compiler", "build_type"
 

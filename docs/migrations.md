@@ -89,3 +89,21 @@ downloadable wheel checksum from 0.3.0; update foundation workflow and installat
   metrics URLs; default `doctor` remains network-free.
 - Update every reusable workflow reference to `v0.6.0`, then run the full PR gates and an
   operations smoke profile.
+
+## 0.6.0 to 0.7.0
+
+- Manifest schema version remains 1. Project versions are now checked as full Semantic
+  Versions, and project names that become C++ keywords are rejected. Existing valid
+  projects do not need a manifest rewrite.
+- Add `CMakePresets.json`, `CONTRIBUTING.md`, `SECURITY.md`, the CODEOWNERS starter, pull
+  request template and `scripts/bootstrap_github.py` from a temporary 0.7.0 project.
+- Add the `push` trigger for `main` to generated `ci.yml` and `quality.yml`. Configure branch
+  protection separately after GitHub reports the exact required check names.
+- Review and adopt the real `--healthcheck` implementation and Docker Compose health check.
+  Keep `--check` for an executable-only smoke check and use `--healthcheck` for a running
+  service.
+- `template-diff` now reports workflow, deployment and governance-file changes. A reported
+  change may be an intentional project customization; review it instead of overwriting it.
+- Choose and review the project license. Existing projects are not automatically relicensed.
+- Update every reusable workflow reference to `v0.7.0`, then run the full PR gates, a
+  generated-project build and an operations smoke profile.

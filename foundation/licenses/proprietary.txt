@@ -1,0 +1,5 @@
+Copyright (c) {{PROJECT_NAME}} contributors. All rights reserved.
+
+This source code and its accompanying materials are proprietary and
+confidential. No permission is granted to use, copy, modify, distribute, or
+disclose them without prior written authorization from the copyright holder.

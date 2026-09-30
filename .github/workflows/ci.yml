@@ -133,6 +133,59 @@ jobs:
           cmake --build build/release --parallel --target hello_service hello_service_tests
           ctest --test-dir build/release --output-on-failure --timeout 60
           build/release/bin/hello-service --check
+          build/release/bin/hello-service >../../runtime/hello-service.log 2>&1 &
+          service_pid=$!
+          trap 'kill "$service_pid" 2>/dev/null || true' EXIT
+          for _ in {1..20}; do
+            if build/release/bin/hello-service --healthcheck; then
+              break
+            fi
+            sleep 0.25
+          done
+          build/release/bin/hello-service --healthcheck
+          kill "$service_pid"
+          wait "$service_pid" || true
+          trap - EXIT
+
+      - name: Build test and package the wheel-generated project
+        working-directory: runtime/installed-smoke
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          set -euo pipefail
+          git init -q
+          git config user.name "Foundation CI"
+          git config user.email "foundation-ci@example.invalid"
+          git add .
+          git commit -qm "generated project"
+          FOUNDATION_CANDIDATE_REVISION="$(git rev-parse HEAD)"
+          export FOUNDATION_CANDIDATE_REVISION
+          conan install . \
+            --profile:host conan/profiles/linux-gcc-x64 \
+            --profile:build conan/profiles/linux-gcc-x64 \
+            --lockfile conan/locks/linux-gcc-x64-release.lock \
+            --output-folder=build/conan --build=missing
+          cmake --preset release
+          cmake --build --preset release --target installed_smoke installed_smoke_tests
+          ctest --preset release
+          build/release/bin/installed-smoke --check
+          build/release/bin/installed-smoke >../installed-smoke.log 2>&1 &
+          service_pid=$!
+          trap 'kill "$service_pid" 2>/dev/null || true' EXIT
+          for _ in {1..20}; do
+            if build/release/bin/installed-smoke --healthcheck; then
+              break
+            fi
+            sleep 0.25
+          done
+          build/release/bin/installed-smoke --healthcheck
+          kill "$service_pid"
+          wait "$service_pid" || true
+          trap - EXIT
+          cpp-foundation package --output-dir dist
+          archive=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          cpp-foundation verify-release --archive "$archive" --checksum "$archive.sha256"
 
       - name: Validate release and bounded P2 gates
         env:

@@ -1,5 +1,5 @@
 [Unit]
-Description=Foundation-managed hello service Compose deployment
+Description=Foundation-managed hello-service Compose deployment
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target

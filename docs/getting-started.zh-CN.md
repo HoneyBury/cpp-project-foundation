@@ -27,28 +27,36 @@ ninja --version
 ```
 
 Python 必须是 3.11 或更高版本；正式支持的编译器是 GCC 13。
+可选的源码质量工具还需要 Node.js 22 或更高版本以及 npm。
 
 ## 2. 安装项目生成工具
 
 ```bash
-pipx install "cpp-project-foundation==0.6.0"
+pipx install "cpp-project-foundation==0.7.0"
 cpp-foundation --help
 ```
 
 `pipx` 会把这个 Python 工具与 C++ 项目的依赖分开。如果本机已经安装旧版本，可以执行：
 
 ```bash
-pipx install --force "cpp-project-foundation==0.6.0"
+pipx install --force "cpp-project-foundation==0.7.0"
 ```
 
 ## 3. 创建项目
 
-项目名只能使用小写字母、数字和连字符。输出目录不能已经存在。
+项目名只能使用小写字母、数字和连字符。输出目录不能已经存在。`--license` 可以选择
+`MIT`、`Apache-2.0`、`proprietary` 或 `none`；发布项目前应和团队一起确认生成的
+`LICENSE`。
+
+版本可以使用 `1.2.0-rc.1+build.5` 这样的预发布格式。CMake 的 `project(VERSION)` 只
+接受数字，因此会使用其中的 `1.2.0`；`foundation.toml`、Conan 信息和发布文件名仍保留
+完整版本。
 
 ```bash
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output ../order-service
 cd ../order-service
 ```
@@ -106,17 +114,12 @@ conan install . \
   --build=missing
 ```
 
-配置并编译示例程序和测试：
+使用项目自带的 CMake preset 配置并编译示例程序和测试：
 
 ```bash
-cmake -S . -B build/release -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DENABLE_TESTING=ON \
-  -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
-  -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
-cmake --build build/release --parallel \
-  --target order_service order_service_tests
-ctest --test-dir build/release --output-on-failure
+cmake --preset release
+cmake --build --preset release --target order_service order_service_tests
+ctest --preset release
 ```
 
 运行程序自带的检查：
@@ -159,7 +162,15 @@ git commit -m "chore: create order service"
 ```
 
 把项目推送到 GitHub 后，`.github/workflows/` 中的任务会自动执行主要编译和检查。
-模板不会创建仓库规则、密钥或生产环境，这些内容需要按照团队要求单独配置。
+模板不会自动创建仓库规则、密钥或生产环境。生成的辅助脚本默认只打印分支保护策略，
+不会修改仓库。第一次 pull request 跑出准确的检查名称后，使用仓库名和检查名称审阅策略：
+
+```bash
+python3 scripts/bootstrap_github.py \
+  --repository your-org/order-service \
+  --required-check "GitHub 显示的检查名称"
+# 确认输出后，再增加 --apply。
+```
 
 ## 初次使用常见问题
 

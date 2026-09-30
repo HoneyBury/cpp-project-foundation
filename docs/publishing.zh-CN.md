@@ -51,7 +51,7 @@ GitHub 中保存长期 PyPI 密码或 API token。
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.6.0 \
+  -f release-tag=v0.7.0 \
   -f publish=false
 ```
 
@@ -65,7 +65,7 @@ gh workflow run publish-pypi.yml \
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.6.0 \
+  -f release-tag=v0.7.0 \
   -f publish=true
 ```
 
@@ -80,7 +80,7 @@ Workflow 成功后，等待 PyPI 显示该版本，再从官方索引安装到�
 python3 -m venv /tmp/cpp-foundation-pypi-check
 /tmp/cpp-foundation-pypi-check/bin/pip install \
   --index-url https://pypi.org/simple \
-  "cpp-project-foundation==0.6.0"
+  "cpp-project-foundation==0.7.0"
 /tmp/cpp-foundation-pypi-check/bin/cpp-foundation --help
 ```
 

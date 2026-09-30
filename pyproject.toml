@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cpp-project-foundation"
-version = "0.6.0"
+version = "0.7.0"
 description = "Manifest-driven engineering foundation for production C++ projects"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -36,6 +36,9 @@ cpp-foundation-build-check = "foundation.build_quality:main"
 [tool.setuptools]
 packages = ["foundation"]
 
+[tool.setuptools.package-data]
+foundation = ["licenses/*.txt"]
+
 [tool.setuptools.data-files]
 "share/cpp-project-foundation/template" = [
   ".clang-format",
@@ -47,7 +50,11 @@ packages = ["foundation"]
   ".shellcheckrc",
   "examples/hello-service/.iwyu.imp",
   "examples/hello-service/CMakeLists.txt",
+  "examples/hello-service/CMakePresets.json",
+  "examples/hello-service/CONTRIBUTING.md",
+  "examples/hello-service/LICENSE",
   "examples/hello-service/README.md",
+  "examples/hello-service/SECURITY.md",
   "examples/hello-service/conanfile.py",
   "examples/hello-service/foundation.toml",
   "ruff.toml",
@@ -56,7 +63,9 @@ packages = ["foundation"]
   "examples/hello-service/.github/workflows/*.yml",
 ]
 "share/cpp-project-foundation/template/.github" = [
+  "examples/hello-service/.github/CODEOWNERS",
   "examples/hello-service/.github/dependabot.yml",
+  "examples/hello-service/.github/pull_request_template.md",
 ]
 "share/cpp-project-foundation/template/cmake" = [
   "examples/hello-service/cmake/*.cmake",
@@ -96,4 +105,5 @@ packages = ["foundation"]
 "share/cpp-project-foundation/template/scripts" = [
   "scripts/install_quality_tools.py",
   "scripts/bootstrap_dev.py",
+  "scripts/bootstrap_github.py",
 ]

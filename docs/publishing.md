@@ -53,7 +53,7 @@ This command checks everything but intentionally skips the PyPI upload:
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.6.0 \
+  -f release-tag=v0.7.0 \
   -f publish=false
 ```
 
@@ -67,7 +67,7 @@ Only after the no-upload run succeeds:
 ```bash
 gh workflow run publish-pypi.yml \
   --repo HoneyBury/cpp-project-foundation \
-  -f release-tag=v0.6.0 \
+  -f release-tag=v0.7.0 \
   -f publish=true
 ```
 
@@ -83,7 +83,7 @@ official index in a clean environment:
 python3 -m venv /tmp/cpp-foundation-pypi-check
 /tmp/cpp-foundation-pypi-check/bin/pip install \
   --index-url https://pypi.org/simple \
-  "cpp-project-foundation==0.6.0"
+  "cpp-project-foundation==0.7.0"
 /tmp/cpp-foundation-pypi-check/bin/cpp-foundation --help
 ```
 

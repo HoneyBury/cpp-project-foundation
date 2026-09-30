@@ -30,7 +30,7 @@ Conan. The [step-by-step guide](https://github.com/HoneyBury/cpp-project-foundat
 Install the tool from PyPI:
 
 ```bash
-pipx install "cpp-project-foundation==0.6.0"
+pipx install "cpp-project-foundation==0.7.0"
 cpp-foundation --help
 ```
 
@@ -40,6 +40,7 @@ Create a project. The output directory must not already exist:
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output ../order-service
 cd ../order-service
 ```
@@ -63,12 +64,13 @@ Continue with [Build and run your first project](https://github.com/HoneyBury/cp
 | --- | --- |
 | `src/`, `include/` | Example application code to replace with your own code |
 | `tests/` | A small test and the place for new tests |
-| `CMakeLists.txt` | Build targets and compiler settings |
+| `CMakeLists.txt`, `CMakePresets.json` | Build targets and short repeatable commands |
 | `conanfile.py`, `conan/` | Third-party dependencies and their fixed versions |
 | `foundation.toml` | Project name, build targets, release files and operation commands |
 | `.github/workflows/` | Automated build, test, security and release jobs |
 | `deploy/` | Optional Docker Compose and systemd examples |
 | `quality/` | Time, size and coverage limits used by checks |
+| `LICENSE`, `SECURITY.md` | Chosen license and private-reporting guidance |
 
 The generated directory is your project. You may edit it normally. The tool never silently
 replaces application code or changes a limit after a failed check.

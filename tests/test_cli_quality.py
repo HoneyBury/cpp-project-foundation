@@ -39,6 +39,12 @@ class CliDispatchTests(unittest.TestCase):
                 result,
             )
             initialize.assert_called_once()
+            initialize.assert_called_once_with(
+                "sample",
+                "0.1.0",
+                Path("generated"),
+                license_name="MIT",
+            )
             self.assertTrue(cli.execute(parsed("validate"))["overall_pass"])
             self.assertIs(
                 cli.execute(

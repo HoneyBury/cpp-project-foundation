@@ -6,7 +6,7 @@ import sysconfig
 from pathlib import Path
 
 from .common import FoundationError
-from .manifest import NAME_RE, VERSION_RE, load_manifest
+from .manifest import load_manifest, project_identifier, validate_version
 
 TEXT_SUFFIXES = {
     "",
@@ -37,8 +37,25 @@ QUALITY_ASSETS = (
     "requirements/quality.txt",
     "ruff.toml",
     "scripts/bootstrap_dev.py",
+    "scripts/bootstrap_github.py",
     "scripts/install_quality_tools.py",
 )
+
+LICENSE_CHOICES = ("MIT", "Apache-2.0", "proprietary", "none")
+
+
+def _write_license(output: Path, license_name: str, project_name: str) -> None:
+    destination = output / "LICENSE"
+    if license_name == "none":
+        destination.unlink(missing_ok=True)
+        return
+    if license_name not in LICENSE_CHOICES:
+        raise FoundationError(
+            f"unsupported license {license_name!r}; choose from {', '.join(LICENSE_CHOICES)}"
+        )
+    source = Path(__file__).with_name("licenses") / f"{license_name}.txt"
+    text = source.read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", project_name)
+    destination.write_text(text, encoding="utf-8")
 
 
 def _template_sources() -> tuple[Path, Path]:
@@ -71,11 +88,19 @@ def resolve_template_asset(project_root: Path, relative: Path) -> Path:
     return current
 
 
-def initialize_project(name: str, version: str, output: Path) -> dict[str, object]:
-    if NAME_RE.fullmatch(name) is None:
-        raise FoundationError("project name must be a lowercase DNS-style slug")
-    if VERSION_RE.fullmatch(version) is None:
-        raise FoundationError("project version must be semantic")
+def initialize_project(
+    name: str,
+    version: str,
+    output: Path,
+    *,
+    license_name: str = "MIT",
+) -> dict[str, object]:
+    identifier = project_identifier(name)
+    validate_version(version)
+    if license_name not in LICENSE_CHOICES:
+        raise FoundationError(
+            f"unsupported license {license_name!r}; choose from {', '.join(LICENSE_CHOICES)}"
+        )
     if output.exists():
         raise FoundationError(f"project output already exists: {output}")
     template, quality_root = _template_sources()
@@ -97,9 +122,10 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         destination = output / value
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-    identifier = name.replace("-", "_")
+    _write_license(output, license_name, name)
     class_name = "".join(part.capitalize() for part in name.split("-"))
     display_name = " ".join(part.capitalize() for part in name.split("-"))
+    cmake_version = version.split("-", maxsplit=1)[0].split("+", maxsplit=1)[0]
     for path in sorted(item for item in output.rglob("*") if item.is_file()):
         if path.suffix not in TEXT_SUFFIXES:
             continue
@@ -117,12 +143,15 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         )
         text = text.replace("hello::", f"{identifier}::")
         text = text.replace('"hello/', f'"{identifier}/')
-        if path.relative_to(output).as_posix() in {
-            "CMakeLists.txt",
-            "conanfile.py",
-            "foundation.toml",
-        }:
+        relative = path.relative_to(output).as_posix()
+        if relative == "CMakeLists.txt":
+            text = text.replace(template_version, cmake_version)
+        elif relative in {"conanfile.py", "foundation.toml"}:
             text = text.replace(template_version, version)
+        if relative == "foundation.toml" and license_name == "none":
+            text = text.replace(
+                'include = ["deploy", "LICENSE"]', 'include = ["deploy"]'
+            )
         path.write_text(text, encoding="utf-8")
     for path in sorted(
         output.rglob("*"), key=lambda item: len(item.parts), reverse=True
@@ -154,6 +183,7 @@ def initialize_project(name: str, version: str, output: Path) -> dict[str, objec
         "overall_pass": True,
         "project": name,
         "version": version,
+        "license": license_name,
         "source_formatted": bool(clang_format and cmake_format),
         "output": str(output),
         "next_steps": [

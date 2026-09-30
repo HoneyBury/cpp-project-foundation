@@ -122,6 +122,7 @@ cpp-foundation template-diff --root .
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output /tmp/order-service-new-template
 ```
 
@@ -130,7 +131,7 @@ overwrite application code, dependency choices or project-specific limits.
 
 ## Keeping GitHub Actions healthy
 
-- Keep all foundation workflow references on one version, such as `v0.6.0`.
+- Keep all foundation workflow references on one version, such as `v0.7.0`.
 - Keep third-party Actions fixed to the full commit shown by the template.
 - Review Dependabot pull requests like normal code changes; do not merge all updates at
   once without checking their jobs.

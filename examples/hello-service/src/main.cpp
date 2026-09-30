@@ -12,16 +12,65 @@
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 namespace {
 
 namespace service = hello;
 
-volatile std::sig_atomic_t running = 1;
+volatile sig_atomic_t running = 1;
 
 void stop(int) {
     running = 0;
+}
+
+bool send_all(int socket, std::string_view data) noexcept {
+    std::size_t sent = 0;
+    while (sent < data.size()) {
+        const auto count = ::send(socket, data.data() + static_cast<std::ptrdiff_t>(sent),
+                                  data.size() - sent, MSG_NOSIGNAL);
+        if (count <= 0)
+            return false;
+        sent += static_cast<std::size_t>(count);
+    }
+    return true;
+}
+
+int check_service() {
+    const int client = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (client < 0)
+        return 6;
+    const timeval timeout{2, 0};
+    static_cast<void>(::setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)));
+    static_cast<void>(::setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)));
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = htons(8080);
+    if (::connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
+        ::close(client);
+        return 7;
+    }
+    constexpr std::string_view request =
+        "GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+    if (!send_all(client, request)) {
+        ::close(client);
+        return 8;
+    }
+    std::string response;
+    char buffer[1024]{};
+    while (true) {
+        const auto count = ::read(client, buffer, sizeof(buffer));
+        if (count <= 0)
+            break;
+        response.append(buffer, static_cast<std::size_t>(count));
+    }
+    ::close(client);
+    return response.starts_with("HTTP/1.1 200 ") &&
+                   response.find("\r\n\r\nok\n") != std::string::npos
+               ? 0
+               : 9;
 }
 
 int serve() {
@@ -39,8 +88,14 @@ int serve() {
         ::close(server);
         return 3;
     }
-    std::signal(SIGTERM, stop);
-    std::signal(SIGINT, stop);
+    struct sigaction action {};
+    action.sa_handler = stop;
+    ::sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    if (::sigaction(SIGTERM, &action, nullptr) != 0 || ::sigaction(SIGINT, &action, nullptr) != 0) {
+        ::close(server);
+        return 4;
+    }
     std::uint64_t requests = 0;
     while (running) {
         const int client = ::accept(server, nullptr, nullptr);
@@ -70,7 +125,7 @@ int serve() {
             fmt::format("HTTP/1.1 {} {}\r\nContent-Type: text/plain\r\nContent-Length: "
                         "{}\r\nConnection: close\r\n\r\n{}",
                         status, status == 200 ? "OK" : "Not Found", body.size(), body);
-        ::send(client, response.data(), response.size(), 0);
+        static_cast<void>(send_all(client, response));
         ::close(client);
     }
     ::close(server);
@@ -83,6 +138,12 @@ int run(int argc, char** argv) {
     if (argc == 2 && std::string_view(argv[1]) == "--check") {
         std::cout << "hello-service: PASS\n";
         return 0;
+    }
+    if (argc == 2 && std::string_view(argv[1]) == "--healthcheck") {
+        const int status = check_service();
+        if (status == 0)
+            std::cout << "hello-service: healthy\n";
+        return status;
     }
     if (argc == 3 && std::string_view(argv[1]) == "--benchmark") {
         const auto iterations = std::stoull(argv[2]);

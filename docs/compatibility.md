@@ -7,7 +7,7 @@ for each part of a generated project.
 
 ## Regularly tested setup
 
-The 0.6 release line supports this production setup:
+The 0.7 release line supports this production setup:
 
 | Part | Supported version |
 | --- | --- |
@@ -18,6 +18,7 @@ The 0.6 release line supports this production setup:
 | C++ dependencies | Conan 2.8.1 with a project-owned lockfile |
 | GitHub Actions | GitHub-hosted `ubuntu-24.04` runner |
 | Command-line tool | Python 3.11 or newer |
+| Source-quality tools | Node.js 22 or newer and npm |
 
 Other versions may work, but this repository does not test them continuously. Before using
 a different compiler, operating system or processor in production, run its build, tests,

@@ -46,12 +46,18 @@ def run_doctor(
 
     required_files = (
         "CMakeLists.txt",
+        "CMakePresets.json",
         "conanfile.py",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        ".github/CODEOWNERS",
+        ".github/pull_request_template.md",
         ".github/workflows/ci.yml",
         ".github/workflows/quality.yml",
         ".github/workflows/release.yml",
         ".github/dependabot.yml",
         "quality/baseline.json",
+        "scripts/bootstrap_github.py",
     )
     missing = [
         value
@@ -63,6 +69,36 @@ def run_doctor(
             "project-contract",
             "fail" if missing else "pass",
             f"missing: {', '.join(missing)}" if missing else "required files present",
+        )
+    )
+
+    license_file = project_root / "LICENSE"
+    checks.append(
+        _check(
+            "project-license",
+            "pass" if license_file.is_file() else "warn",
+            "LICENSE is present"
+            if license_file.is_file()
+            else "no LICENSE; confirm that this is intentional",
+        )
+    )
+
+    mainline_workflows = (
+        project_root / ".github/workflows/ci.yml",
+        project_root / ".github/workflows/quality.yml",
+    )
+    missing_push = [
+        path.name
+        for path in mainline_workflows
+        if path.is_file() and "\n  push:\n" not in path.read_text(encoding="utf-8")
+    ]
+    checks.append(
+        _check(
+            "mainline-push-checks",
+            "fail" if missing_push else "pass",
+            f"missing push trigger: {', '.join(missing_push)}"
+            if missing_push
+            else "CI and quality run after updates to main",
         )
     )
 
