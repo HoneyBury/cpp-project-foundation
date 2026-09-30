@@ -2,19 +2,24 @@
 
 [简体中文](migrations.zh-CN.md)
 
-Consumer upgrades are pull-request changes. Never bulk-replace a workflow tag directly on
-the protected default branch.
+This page is only for projects that already use an older foundation version. New projects
+can skip it. Perform an upgrade in its own pull request so the template changes are easy to
+review and undo.
 
 ## Upgrade procedure
 
-1. Install the target foundation tag in an isolated environment.
-2. Run `cpp-foundation doctor --root .` and record warnings that are intentional.
-3. Run `cpp-foundation template-diff --root .` to identify foundation-owned drift.
-4. Generate a temporary project with the same name and version, then selectively apply
-   reviewed changes. Do not overwrite application files or the Conan lockfile.
-5. Change every foundation workflow reference to the same target tag.
-6. Run fast CI and quality gates, deep quality, security and operations smoke.
-7. Merge through branch protection. Run a release dry-run before the next production tag.
+1. Read the notes below for every version between the current and target versions.
+2. Install the target CLI version with `pipx install --force`.
+3. Run `doctor` and `template-diff`; both commands are safe to run before editing files.
+4. Generate a temporary project with the same name and application version.
+5. Compare the temporary project with the real project. Copy only reviewed changes and do
+   not overwrite application code or the Conan lockfile.
+6. Change every foundation workflow reference to the same target tag.
+7. Run the normal build, fast checks, deep checks and an operations smoke test.
+8. Merge through the project's normal review process, then run a release dry-run.
+
+The full procedure and example commands are in
+[Maintaining a generated project](maintenance.md#upgrading-cpp-project-foundation).
 
 ## 0.2.1 to 0.2.2
 
@@ -75,10 +80,11 @@ downloadable wheel checksum from 0.3.0; update foundation workflow and installat
 - Manifest and evidence schema versions remain 1; no data rewrite is required.
 - Add `deploy recover` to host runbooks. An interrupted `started` transaction now blocks
   activation, upgrade and rollback until recovery restores the pre-transaction release.
-- Evidence packaging is now closed-world. Remove unreferenced files and links from an
-  evidence root, and investigate rather than overwrite any corrupt content-addressed file.
+- Evidence packaging now accepts only files referenced by its records. Remove unrelated
+  files and links from an evidence root, and investigate rather than overwrite a corrupt
+  content-addressed file.
 - Release manifests now include a deterministic runtime payload digest. Full archive bytes
-  may differ when provenance run context or SPDX creation time differs.
+  may differ when build-run details or the software-list creation time differs.
 - `doctor --probe-observability` performs opt-in HTTP checks of configured health and
   metrics URLs; default `doctor` remains network-free.
 - Update every reusable workflow reference to `v0.6.0`, then run the full PR gates and an
