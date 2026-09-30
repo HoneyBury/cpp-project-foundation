@@ -8,7 +8,7 @@ behavior remains outside the foundation and enters only through declared hooks.
 
 ## Supported profile
 
-Version 0.5 supports Ubuntu 24.04 x86-64, GCC 13, Clang 18 analysis and compatibility
+Version 0.6 supports Ubuntu 24.04 x86-64, GCC 13, Clang 18 analysis and compatibility
 builds, C++20, CMake 3.21 or newer, Ninja, Conan 2.8.1 and GitHub Actions. Other compilers
 and platforms require their own profile, lockfile and native evidence; results are never
 substituted across platforms.
@@ -41,11 +41,15 @@ that does not match checkout fails packaging verification.
 
 Release verification is closed-world: every regular file except the manifest itself must
 appear exactly once in `release-manifest.json`, and no unlisted payload is accepted.
+The manifest contains a deterministic digest of the runtime payload inventory; contextual
+provenance timestamps and runner identity may still make complete archives byte-different.
+The embedded SPDX document is checked against the release identity and file digests.
 Deployment installation requires the separately transported SHA-256 checksum.
 
 Operational records are create-only. Referenced summaries are copied into a
 content-addressed raw directory before a record is committed. Rewriting a fixed summary
-path cannot mutate historical records.
+path cannot mutate historical records. Verification rejects malformed records, path
+escape, symbolic links, special files and unreferenced content.
 
 ## Non-goals
 

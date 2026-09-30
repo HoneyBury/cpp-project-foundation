@@ -66,6 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--root", type=Path, default=Path("."))
     doctor.add_argument("--strict-tools", action="store_true")
+    doctor.add_argument("--probe-observability", action="store_true")
+    doctor.add_argument("--probe-timeout", type=float, default=5.0)
     template_diff = sub.add_parser("template-diff")
     template_diff.add_argument("--root", type=Path, default=Path("."))
     export = sub.add_parser("export-env")
@@ -96,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
         child = deploy_sub.add_parser(name)
         child.add_argument("--deployment-id", required=True)
     deploy_sub.add_parser("rollback")
+    deploy_sub.add_parser("recover")
     deploy_sub.add_parser("status")
     deploy_sub.add_parser("verify")
 
@@ -175,7 +178,11 @@ def execute(args: argparse.Namespace) -> Any:
         return {"schema_version": 1, "overall_pass": True, "project": manifest.name}
     if args.command == "doctor":
         return run_doctor(
-            args.root, Path(args.manifest), strict_tools=args.strict_tools
+            args.root,
+            Path(args.manifest),
+            strict_tools=args.strict_tools,
+            probe_observability=args.probe_observability,
+            probe_timeout=args.probe_timeout,
         )
     if args.command == "template-diff":
         return compare_template(args.root, Path(args.manifest))
@@ -212,6 +219,8 @@ def execute(args: argparse.Namespace) -> Any:
                 return manager.upgrade(args.deployment_id)
             if args.deploy_command == "rollback":
                 return manager.rollback()
+            if args.deploy_command == "recover":
+                return manager.recover()
             if args.deploy_command == "verify":
                 return manager.verify()
             return manager.status()

@@ -3,6 +3,27 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## 0.6.0 - 2026-09-30
+
+### Added
+
+- Added explicit recovery for interrupted deployment transactions; new activations remain
+  blocked until the operator runs `deploy recover`.
+- Added opt-in health and metrics endpoint probes to `doctor`.
+- Added a deterministic digest over the runtime payload inventory to release manifests.
+
+### Changed
+
+- Evidence verification now validates the complete record schema, content-addressed paths,
+  sizes and digests, and rejects links, special files and unreferenced content.
+- Release verification now validates embedded SPDX document identity, package identity,
+  file inventory and SHA-256 checksums.
+
+### Fixed
+
+- Existing content-addressed evidence snapshots are checked before reuse, preventing a
+  corrupt snapshot from being silently accepted by a later record.
+
 ## 0.5.0 - 2026-09-30
 
 ### Added

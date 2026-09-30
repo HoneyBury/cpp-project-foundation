@@ -68,3 +68,17 @@ workflow tag。
   发布包，不要重新封装旧归档。
 - 将所有可复用 workflow 引用统一更新为 `v0.5.0`，然后执行 `doctor`、
   `template-diff`、完整 PR 门禁和 operations smoke。
+
+## 0.5.0 升级至 0.6.0
+
+- Manifest 与 evidence schema 版本仍为 1，无需重写已有数据。
+- 在主机 runbook 中加入 `deploy recover`。中断后遗留的 `started` 事务会阻止激活、
+  升级和回滚，直到恢复命令还原事务前的发布版本。
+- Evidence 打包现在采用封闭清单。应删除 evidence 根目录中的未引用文件和链接；发现
+  损坏的内容寻址文件时应调查原因，不能直接覆盖。
+- Release manifest 新增确定性的运行时 payload 摘要。若 provenance 运行上下文或 SPDX
+  创建时间不同，完整归档的字节仍可能不同。
+- `doctor --probe-observability` 会按需对已配置的 health 和 metrics URL 执行 HTTP 探测；
+  默认 `doctor` 仍不访问网络。
+- 将所有可复用 workflow 引用更新为 `v0.6.0`，然后运行完整 PR 门禁和 operations
+  smoke profile。

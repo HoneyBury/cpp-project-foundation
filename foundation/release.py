@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import platform as host_platform
 import re
@@ -45,6 +46,13 @@ def _inventory(root: Path, *, excluded: set[str] | None = None) -> list[dict[str
             }
         )
     return files
+
+
+def _inventory_digest(files: list[dict[str, Any]]) -> str:
+    encoded = json.dumps(
+        files, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _native_platform_name() -> str:
@@ -203,6 +211,11 @@ def package_release(
             source = relative_path(manifest.root, str(value), must_exist=True)
             _copy_release_input(source, release_root, Path(str(value)))
         shutil.copy2(manifest.path, release_root / "foundation.toml")
+        payload_files = _inventory(release_root)
+        payload = {
+            "sha256": _inventory_digest(payload_files),
+            "files": [item["path"] for item in payload_files],
+        }
         provenance = build_provenance(manifest, configuration)
         if provenance["source_tree_clean"] is not True:
             paths = ", ".join(str(value) for value in provenance["source_tree_status"])
@@ -220,6 +233,7 @@ def package_release(
             "platform": platform_name,
             "configuration": configuration,
             "files": files,
+            "payload": payload,
             "provenance": provenance,
         }
         atomic_json(release_root / "release-manifest.json", release_manifest)
@@ -291,6 +305,21 @@ def _validate_release_root(root: Path, archive: Path, digest: str) -> dict[str, 
         raise FoundationError("release manifest must be a JSON object")
     if release_manifest.get("schema_version") != 1:
         raise FoundationError("release manifest schema_version must be 1")
+    allowed_fields = {
+        "schema_version",
+        "project",
+        "version",
+        "platform",
+        "configuration",
+        "files",
+        "provenance",
+        "payload",
+    }
+    unknown_fields = sorted(set(release_manifest) - allowed_fields)
+    if unknown_fields:
+        raise FoundationError(
+            "release manifest contains unsupported fields: " + ", ".join(unknown_fields)
+        )
     for key in ("project", "version", "platform", "configuration"):
         value = release_manifest.get(key)
         if not isinstance(value, str) or not value.strip():
@@ -348,6 +377,59 @@ def _validate_release_root(root: Path, archive: Path, digest: str) -> dict[str, 
             )
         if provenance.get("source_tree_clean") is not True:
             errors.append("release provenance was produced from a dirty source tree")
+        try:
+            embedded_provenance = load_json(root / "provenance.json")
+        except FoundationError as exc:
+            errors.append(str(exc))
+        else:
+            if embedded_provenance != provenance:
+                errors.append("embedded provenance does not match release manifest")
+
+    payload = release_manifest.get("payload")
+    payload_digest = None
+    if payload is not None:
+        if not isinstance(payload, dict) or set(payload) != {"files", "sha256"}:
+            errors.append("release payload metadata is invalid")
+        else:
+            payload_paths = payload.get("files")
+            payload_digest = payload.get("sha256")
+            if (
+                not isinstance(payload_paths, list)
+                or not payload_paths
+                or not all(
+                    isinstance(value, str) and value.strip() for value in payload_paths
+                )
+                or payload_paths != sorted(set(payload_paths))
+                or not isinstance(payload_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", payload_digest) is None
+            ):
+                errors.append("release payload metadata is invalid")
+            else:
+                expected_payload_paths = sorted(
+                    set(expected) - {"provenance.json", "sbom.spdx.json"}
+                )
+                if payload_paths != expected_payload_paths:
+                    errors.append("release payload inventory is not closed")
+                elif not set(payload_paths).issubset(actual):
+                    errors.append("release payload inventory references missing files")
+                else:
+                    observed_payload = [actual[value] for value in payload_paths]
+                    if _inventory_digest(observed_payload) != payload_digest:
+                        errors.append("release payload digest mismatch")
+
+    try:
+        sbom = load_json(root / "sbom.spdx.json")
+    except FoundationError as exc:
+        errors.append(str(exc))
+    else:
+        errors.extend(
+            _validate_embedded_sbom(
+                sbom,
+                project=release_manifest["project"],
+                version=release_manifest["version"],
+                files=actual,
+            )
+        )
     if errors:
         raise FoundationError("; ".join(errors))
     return {
@@ -359,7 +441,95 @@ def _validate_release_root(root: Path, archive: Path, digest: str) -> dict[str, 
         "version": release_manifest["version"],
         "platform": release_manifest["platform"],
         "file_count": len(files),
+        "payload_sha256": payload_digest,
     }
+
+
+def _validate_embedded_sbom(
+    document: Any,
+    *,
+    project: str,
+    version: str,
+    files: dict[str, dict[str, Any]],
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(document, dict):
+        return ["embedded SBOM must be a JSON object"]
+    for key, expected in (
+        ("spdxVersion", "SPDX-2.3"),
+        ("dataLicense", "CC0-1.0"),
+        ("SPDXID", "SPDXRef-DOCUMENT"),
+    ):
+        if document.get(key) != expected:
+            errors.append(f"embedded SBOM {key} must be {expected}")
+
+    packages = document.get("packages")
+    application = None
+    if isinstance(packages, list):
+        application = next(
+            (
+                item
+                for item in packages
+                if isinstance(item, dict) and item.get("SPDXID") == "SPDXRef-Package"
+            ),
+            None,
+        )
+    if not isinstance(application, dict):
+        errors.append("embedded SBOM application package is missing")
+    elif (
+        application.get("name") != project or application.get("versionInfo") != version
+    ):
+        errors.append("embedded SBOM package identity does not match the release")
+
+    sbom_files = document.get("files")
+    observed: dict[str, str] = {}
+    identifiers: set[str] = set()
+    if not isinstance(sbom_files, list):
+        errors.append("embedded SBOM files must be an array")
+    else:
+        for item in sbom_files:
+            if not isinstance(item, dict):
+                errors.append("embedded SBOM contains an invalid file record")
+                continue
+            name = item.get("fileName")
+            identifier = item.get("SPDXID")
+            checksums = item.get("checksums")
+            if (
+                not isinstance(name, str)
+                or not name.startswith("./")
+                or not isinstance(identifier, str)
+                or not identifier
+                or name in observed
+                or identifier in identifiers
+                or not isinstance(checksums, list)
+            ):
+                errors.append(
+                    "embedded SBOM contains duplicate or invalid file metadata"
+                )
+                continue
+            sha256_values = [
+                value.get("checksumValue")
+                for value in checksums
+                if isinstance(value, dict) and value.get("algorithm") == "SHA256"
+            ]
+            if (
+                len(sha256_values) != 1
+                or not isinstance(sha256_values[0], str)
+                or re.fullmatch(r"[0-9a-f]{64}", sha256_values[0]) is None
+            ):
+                errors.append(f"embedded SBOM SHA256 is invalid: {name}")
+                continue
+            observed[name[2:]] = sha256_values[0]
+            identifiers.add(identifier)
+
+    expected = {
+        name: item["sha256"]
+        for name, item in files.items()
+        if name not in {"sbom.spdx.json", "release-manifest.json"}
+    }
+    if observed != expected:
+        errors.append("embedded SBOM file inventory does not match the release")
+    return errors
 
 
 def _verify_and_extract(

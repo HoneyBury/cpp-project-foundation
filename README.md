@@ -24,7 +24,7 @@ Install an immutable release with `pipx` and generate a service from the maintai
 reference template:
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.5.0"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.6.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -40,7 +40,7 @@ reusable CI workflow.
 `foundation.toml` is the boundary between the generic platform and application code. It
 declares build targets, release inputs and fail-closed operation hooks. The toolkit never
 guesses service names or rewrites thresholds after observing a failure.
-Version 0.5 validates this contract strictly: unknown fields, incorrectly typed arrays,
+Version 0.6 validates this contract strictly: unknown fields, incorrectly typed arrays,
 invalid observability URLs and non-positive hook timeouts fail during `validate`.
 
 ```toml
@@ -86,18 +86,19 @@ benchmark = ["bin/order-service", "--benchmark", "200000"]
 
 ### P1: immutable release and deployment
 
-- safe runtime archive, SHA-256, SPDX 2.3 SBOM and candidate provenance
+- safe runtime archive, SHA-256, deterministic payload digest, validated SPDX 2.3 SBOM
+  and candidate provenance
 - GitHub artifact attestations and immutable tag release
 - archive path traversal and digest verification
 - idempotent install, serialized deployment operations, upgrade, rollback, status and verify
-- failed candidate cleanup and automatic previous deployment recovery
+- failed candidate cleanup, automatic rollback and explicit interrupted-transaction recovery
 - runtime-only Dockerfile, hardened Compose, systemd and Prometheus/Grafana reference files
 - GCC 13 and Clang 18 compatibility builds, CodeQL and coverage thresholds
 - Dependabot policies for Actions, Python tooling and Docker bases
 
 ### P2: operations evidence
 
-- create-only evidence records with content-addressed raw summaries
+- create-only evidence records with closed-world, content-addressed raw summaries
 - package verification for off-host retention
 - age-encrypted backup creation, verification and isolated restore
 - application-defined external canary with fixed-window aggregation
@@ -121,6 +122,7 @@ source .venv/bin/activate
 cpp-foundation --manifest foundation.toml validate
 cpp-foundation --manifest foundation.toml doctor --root .
 cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
+cpp-foundation --manifest foundation.toml doctor --root . --probe-observability
 cpp-foundation --manifest foundation.toml template-diff --root .
 cpp-foundation quality --root . --mode deep --fix
 cpp-foundation quality --root . --mode fast
@@ -134,6 +136,7 @@ sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   --checksum /tmp/project-v0.1.0-linux-x64.tar.gz.sha256
 sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
   activate --deployment-id <deployment-id>
+sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project recover
 ```
 
 Install the repository-pinned quality toolset before running the local quality commands:
@@ -161,7 +164,7 @@ shorter execution limit.
   script defaults to zero approvals for a single maintainer; team repositories should pass
   `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.5.0` release tag.
+  `HoneyBury/cpp-project-foundation@v0.6.0` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.

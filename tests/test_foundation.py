@@ -243,7 +243,7 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.5.0", workflow)
+            self.assertIn("@v0.6.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
@@ -314,6 +314,51 @@ class ManifestTests(unittest.TestCase):
             with patch("foundation.doctor.shutil.which", side_effect=available):
                 missing_asset = run_doctor(output, Path("foundation.toml"))
             self.assertFalse(missing_asset["overall_pass"])
+
+    def test_doctor_optionally_probes_observability_endpoints(self) -> None:
+        class Response:
+            def __init__(self, body: bytes):
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *unused):
+                return False
+
+            def getcode(self) -> int:
+                return 200
+
+            def read(self, unused_limit: int) -> bytes:
+                return self.body
+
+        with tempfile.TemporaryDirectory() as name:
+            output = Path(name) / "doctor-service"
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                initialize_project("doctor-service", "1.2.3", output)
+            with patch(
+                "foundation.doctor.urlopen",
+                side_effect=(Response(b"ok"), Response(b"metric 1\n")),
+            ) as probe:
+                result = run_doctor(
+                    output,
+                    Path("foundation.toml"),
+                    probe_observability=True,
+                    probe_timeout=2.0,
+                )
+            statuses = {item["name"]: item["status"] for item in result["checks"]}
+            self.assertEqual(statuses["observability:health"], "pass")
+            self.assertEqual(statuses["observability:metrics"], "pass")
+            self.assertEqual(probe.call_count, 2)
+
+            with patch(
+                "foundation.doctor.urlopen",
+                side_effect=(Response(b"ok"), Response(b"")),
+            ):
+                failed = run_doctor(
+                    output, Path("foundation.toml"), probe_observability=True
+                )
+            self.assertFalse(failed["overall_pass"])
 
     def test_template_diff_detects_foundation_owned_drift(self) -> None:
         with tempfile.TemporaryDirectory() as name:
@@ -418,6 +463,60 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
                 )
                 sbom = json.load(stream.extractfile(sbom_member))
             self.assertEqual(sbom["documentDescribes"], ["SPDXRef-Package"])
+            self.assertRegex(result["payload_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_embedded_sbom_semantics_are_verified(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            archive, _ = self.package(root, "1.0.0")
+            unpacked = root / "unpacked"
+            with tarfile.open(archive, "r:gz") as stream:
+                stream.extractall(unpacked, filter="data")
+            release_root = next(unpacked.iterdir())
+            sbom_path = release_root / "sbom.spdx.json"
+            sbom = json.loads(sbom_path.read_text(encoding="utf-8"))
+            sbom["packages"][0]["versionInfo"] = "9.9.9"
+            atomic_json(sbom_path, sbom)
+            manifest_path = release_root / "release-manifest.json"
+            release_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            sbom_record = next(
+                item
+                for item in release_manifest["files"]
+                if item["path"] == "sbom.spdx.json"
+            )
+            sbom_record["size_bytes"] = sbom_path.stat().st_size
+            sbom_record["sha256"] = sha256_file(sbom_path)
+            atomic_json(manifest_path, release_manifest)
+            tampered = root / "tampered-sbom.tar.gz"
+            with tarfile.open(tampered, "w:gz") as stream:
+                stream.add(release_root, arcname=release_root.name)
+            checksum = root / "tampered-sbom.tar.gz.sha256"
+            checksum.write_text(
+                f"{sha256_file(tampered)}  {tampered.name}\n", encoding="ascii"
+            )
+            with self.assertRaisesRegex(FoundationError, "SBOM package identity"):
+                verify_release(tampered, checksum)
+
+    def test_release_verifier_accepts_pre_payload_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            archive, _ = self.package(root, "1.0.0")
+            unpacked = root / "unpacked"
+            with tarfile.open(archive, "r:gz") as stream:
+                stream.extractall(unpacked, filter="data")
+            release_root = next(unpacked.iterdir())
+            manifest_path = release_root / "release-manifest.json"
+            release_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            release_manifest.pop("payload")
+            atomic_json(manifest_path, release_manifest)
+            legacy = root / "legacy.tar.gz"
+            with tarfile.open(legacy, "w:gz") as stream:
+                stream.add(release_root, arcname=release_root.name)
+            checksum = root / "legacy.tar.gz.sha256"
+            checksum.write_text(
+                f"{sha256_file(legacy)}  {legacy.name}\n", encoding="ascii"
+            )
+            self.assertIsNone(verify_release(legacy, checksum)["payload_sha256"])
 
     def test_checksum_tampering_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as name:
@@ -511,6 +610,70 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
             with self.assertRaisesRegex(FoundationError, "requires a release checksum"):
                 manager.install(archive)
 
+    def test_interrupted_deployment_requires_explicit_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            parent = Path(name)
+            first_archive, first_checksum = self.package(parent, "1.0.0")
+            second_archive, second_checksum = self.package(parent, "1.1.0")
+            manager = DeploymentManager(parent / "opt", parent / "state")
+            first = manager.install(first_archive, first_checksum)
+            manager.deploy(first["deployment_id"])
+            second = manager.install(second_archive, second_checksum)
+            _, transaction = manager._transaction(
+                "upgrade",
+                {
+                    "candidate": second["deployment_id"],
+                    "from_current": first["deployment_id"],
+                    "from_previous": None,
+                },
+            )
+            manager._atomic_link(
+                manager.current,
+                manager.deployments / second["deployment_id"],
+            )
+
+            self.assertFalse(manager.status()["overall_pass"])
+            with self.assertRaisesRegex(FoundationError, "deploy recover"):
+                manager.deploy(first["deployment_id"])
+            with self.assertRaisesRegex(FoundationError, "deploy recover"):
+                manager.deploy(second["deployment_id"])
+            recovered = manager.recover()
+            self.assertEqual(recovered["transaction_id"], transaction["transaction_id"])
+            self.assertEqual(recovered["status"], "recovered")
+            self.assertEqual(manager.status()["current"], first["deployment_id"])
+            self.assertTrue(manager.status()["overall_pass"])
+
+            manager._transaction(
+                "upgrade",
+                {
+                    "candidate": second["deployment_id"],
+                    "from_current": first["deployment_id"],
+                    "from_previous": None,
+                },
+            )
+            failed_hook = {
+                "hook": "deactivate",
+                "status": "failed",
+                "returncode": -1,
+            }
+            passed_hook = {
+                "hook": "activate",
+                "status": "skipped",
+                "returncode": 0,
+            }
+            with (
+                patch.object(
+                    manager,
+                    "_run_deployment_recovery_hook",
+                    side_effect=(failed_hook, passed_hook),
+                ),
+                self.assertRaisesRegex(FoundationError, "deactivate hook returned"),
+            ):
+                manager.recover()
+            self.assertFalse(manager.status()["overall_pass"])
+            self.assertEqual(manager.recover()["status"], "recovered")
+            self.assertTrue(manager.status()["overall_pass"])
+
 
 class OperationsTests(unittest.TestCase):
     def test_evidence_is_create_only_and_verifiable(self) -> None:
@@ -535,6 +698,42 @@ class OperationsTests(unittest.TestCase):
             self.assertTrue(verify_evidence(evidence)["overall_pass"])
             package = package_evidence(evidence, root / "evidence.tar.gz")
             self.assertFalse(package["off_host_copy_verified"])
+
+    def test_evidence_rejects_corruption_escape_and_links(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            summary = root / "summary.json"
+            atomic_json(summary, {"overall_pass": True})
+            evidence = root / "evidence"
+            record = record_evidence(
+                evidence,
+                kind="daily",
+                record_id="one",
+                summaries=[summary],
+            )
+            snapshot = evidence / record["summaries"][0]["snapshot"]
+            snapshot.write_text("corrupt\n", encoding="utf-8")
+            self.assertFalse(verify_evidence(evidence)["overall_pass"])
+            with self.assertRaisesRegex(FoundationError, "existing evidence snapshot"):
+                record_evidence(
+                    evidence,
+                    kind="daily",
+                    record_id="two",
+                    summaries=[summary],
+                )
+
+            snapshot.write_bytes(summary.read_bytes())
+            record_path = evidence / "records/daily/one.json"
+            document = json.loads(record_path.read_text(encoding="utf-8"))
+            document["summaries"][0]["snapshot"] = "../../summary.json"
+            atomic_json(record_path, document)
+            self.assertFalse(verify_evidence(evidence)["overall_pass"])
+
+            document["summaries"][0]["snapshot"] = str(snapshot.relative_to(evidence))
+            atomic_json(record_path, document)
+            (evidence / "unexpected-link").symlink_to(summary)
+            with self.assertRaisesRegex(FoundationError, "evidence tree is not valid"):
+                package_evidence(evidence, root / "evidence.tar.gz")
 
     def test_backup_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as name:
