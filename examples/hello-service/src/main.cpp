@@ -2,13 +2,13 @@
 
 #include <arpa/inet.h>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <fmt/format.h>
 #include <iostream>
 #include <netinet/in.h>
-#include <signal.h>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
