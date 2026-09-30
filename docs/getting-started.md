@@ -27,6 +27,7 @@ ninja --version
 ```
 
 Python must be 3.11 or newer. The supported compiler is GCC 13.
+The optional source-quality tools also require Node.js 22 or newer and npm.
 
 ## 2. Install the project generator
 

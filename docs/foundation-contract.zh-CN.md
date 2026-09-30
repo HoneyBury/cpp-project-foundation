@@ -15,6 +15,7 @@
 - CMake 3.21 或更高版本、Ninja 和 Conan 2.8.1；
 - GitHub Actions `ubuntu-24.04` runner；
 - 命令行工具使用 Python 3.11 或更高版本。
+- 可选的源码质量工具使用 Node.js 22 或更高版本以及 npm。
 
 其他系统可以用于开发，但在作为生产环境前，需要单独完成编译和运维验证。
 

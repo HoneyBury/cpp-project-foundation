@@ -13,6 +13,7 @@ project remains in the `0.x` development lifecycle.
   CODEOWNERS starter and the branch-protection helper to generated projects.
 - Added a full wheel-to-generated-project compile, test, health-check, package and release
   verification path to CI.
+- Added an explicit Node.js 22 setup for the pinned source-quality toolchain.
 
 ### Changed
 
@@ -22,6 +23,8 @@ project remains in the `0.x` development lifecycle.
 - Template drift reports now cover workflows, deployment examples and project governance
   files in addition to quality settings.
 - Generated documentation links are fixed to the matching foundation release.
+- Updated the pinned Markdown quality toolchain to versions that resolve the current
+  `smol-toml`, `markdown-it` and `js-yaml` security advisories.
 
 ### Fixed
 

@@ -155,8 +155,20 @@ def main() -> int:
     install_hadolint(config["hadolint"], key, bin_dir)
     install_shellcheck(config["shellcheck"], key, bin_dir)
     npm = shutil.which("npm")
-    if npm is None:
-        raise SystemExit("npm is required to install markdownlint-cli2")
+    node = shutil.which("node")
+    if npm is None or node is None:
+        raise SystemExit("Node.js 22 or newer and npm are required for quality tools")
+    node_result = subprocess.run(
+        [node, "--version"], check=True, capture_output=True, text=True
+    )
+    try:
+        node_major = int(node_result.stdout.strip().removeprefix("v").split(".")[0])
+    except (ValueError, IndexError) as exc:
+        raise SystemExit("cannot determine the installed Node.js version") from exc
+    if node_major < 22:
+        raise SystemExit(
+            f"Node.js 22 or newer is required; detected {node_result.stdout.strip()}"
+        )
     npm_dir = args.tools_dir / "npm"
     npm_dir.mkdir(parents=True, exist_ok=True)
     for filename in ("package.json", "package-lock.json"):

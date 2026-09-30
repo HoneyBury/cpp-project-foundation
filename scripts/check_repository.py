@@ -97,6 +97,9 @@ def main() -> int:
                     f"attestation sbom-path must be an exact file: "
                     f"{workflow.name}: {sbom_path}"
                 )
+    action_sources = workflows + sorted((ROOT / ".github/actions").glob("*/action.yml"))
+    for source in action_sources:
+        text = source.read_text(encoding="utf-8")
         for action, revision in ACTION_RE.findall(text):
             if action.startswith("./"):
                 continue
@@ -111,7 +114,8 @@ def main() -> int:
                 continue
             if SHA_RE.fullmatch(revision) is None:
                 errors.append(
-                    f"action is not pinned to a full SHA: {action}@{revision}"
+                    f"action is not pinned to a full SHA: {source.name}: "
+                    f"{action}@{revision}"
                 )
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project_metadata = pyproject["project"]

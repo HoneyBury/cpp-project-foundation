@@ -20,6 +20,12 @@ runs:
         python3 -m venv "$venv"
         "$venv/bin/pip" install --disable-pip-version-check "$GITHUB_ACTION_PATH/../../.."
         echo "$venv/bin" >> "$GITHUB_PATH"
+    - name: Setup Node for quality tools
+      if: inputs.install-quality-tools == 'true'
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      with:
+        node-version: "22"
+        check-latest: true
     - name: Install quality tools
       if: inputs.install-quality-tools == 'true'
       shell: bash

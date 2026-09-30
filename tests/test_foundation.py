@@ -90,6 +90,10 @@ class ManifestTests(unittest.TestCase):
     def test_bootstrap_script_rejects_unsupported_python(self) -> None:
         script = Path("scripts/bootstrap_dev.py").read_text(encoding="utf-8")
         self.assertIn("Python 3.11 or newer", script)
+        quality_script = Path("scripts/install_quality_tools.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Node.js 22 or newer", quality_script)
 
     def test_build_quality_enforces_size_time_and_reproducibility(self) -> None:
         with tempfile.TemporaryDirectory() as name:
