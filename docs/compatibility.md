@@ -1,53 +1,57 @@
-# Compatibility and Support Policy
+# Supported Versions
 
 [简体中文](compatibility.zh-CN.md)
 
-## Supported baseline
+This page answers two questions: which setup is regularly tested, and who is responsible
+for each part of a generated project.
 
-The following combination is continuously exercised and is the only production baseline
-for the 0.6 release line:
+## Regularly tested setup
 
-| Layer | Supported baseline |
+The 0.6 release line supports this production setup:
+
+| Part | Supported version |
 | --- | --- |
-| Host and release artifact | Ubuntu 24.04, Linux x86-64 |
-| Language | C++20 |
-| Build | CMake 3.21 or newer, Ninja |
-| Compilers | GCC 13; Clang 18 compatibility and analysis |
-| Dependencies | Conan 2.8.1, project-owned profiles and lockfiles |
-| Automation | GitHub-hosted `ubuntu-24.04` runners |
-| Python CLI | CPython 3.11 or newer |
+| Host and release files | Ubuntu 24.04, Linux x86-64 |
+| C++ | C++20 |
+| Build tools | CMake 3.21 or newer and Ninja |
+| Compilers | GCC 13; Clang 18 for extra checks |
+| C++ dependencies | Conan 2.8.1 with a project-owned lockfile |
+| GitHub Actions | GitHub-hosted `ubuntu-24.04` runner |
+| Command-line tool | Python 3.11 or newer |
 
-Other platforms and versions are extension profiles. They require native build,
-performance and operations evidence and do not inherit support from this matrix. In
-particular, macOS is suitable for development and orchestration but does not produce a
-supported Linux release artifact.
+Other versions may work, but this repository does not test them continuously. Before using
+a different compiler, operating system or processor in production, run its build, tests,
+performance checks and deployment drill on that real platform.
 
-## Ownership boundary
+macOS is useful for editing code and running some commands, but it does not create a
+supported Linux production release.
 
-| Foundation owns | Consuming project owns |
+## Who owns what?
+
+| Foundation toolkit provides | Your project team decides and maintains |
 | --- | --- |
-| Reusable workflow contracts and pinned Actions | Workflow tag selected by the project |
-| Default compiler, quality and security policy | Application source, behavior and tests |
-| Generated quality configuration and Conan profiles | Conan dependency graph and lockfile |
-| Archive, provenance, SBOM and deployment formats | Release version and rollout approval |
-| Transaction, backup and evidence mechanics | Health, canary, benchmark and backup hooks |
-| Reference Compose, systemd and monitoring assets | Production credentials, hosts and SLOs |
+| Reusable GitHub Actions jobs | Which foundation version the project uses |
+| Default compiler and source checks | Application code, behavior and tests |
+| Starter quality settings and Conan profiles | Dependencies and the lockfile |
+| Release and deployment file formats | Application version and release approval |
+| Transaction, backup and evidence commands | Health, benchmark and backup commands |
+| Example Docker, systemd and monitoring files | Production hosts, credentials and goals |
 
-`cpp-foundation template-diff` compares only foundation-owned generated files. It never
-rewrites application source, the manifest, dependency lockfiles, deployment policy or
-performance budgets.
+`cpp-foundation template-diff` only reports changes in foundation-owned starter files. It
+does not overwrite application code, `foundation.toml`, lockfiles or project-specific
+limits.
 
-## Version and support lifecycle
+## Version policy
 
-- Release tags are immutable and consumers pin an explicit semantic version.
-- During `0.x`, a minor release may change a generated or reusable contract; every such
-  change must have a migration entry. Patch releases remain backward-compatible fixes.
-- The latest minor receives fixes. Older minors remain downloadable but do not receive a
-  separate security or maintenance branch.
-- Deprecations are documented for at least one minor before removal unless retaining the
-  behavior would leave a known security or integrity failure.
-- Ubuntu release-line changes are reviewed as explicit compatibility work; automated
-  Docker updates retain the supported 24.04 minor line.
+- Every release has an immutable version tag. Projects should use an exact tag.
+- Before version `1.0.0`, a new middle number may require changes in generated projects.
+  Those changes are listed in the [migration guide](migrations.md).
+- A change to only the last number is intended to be a compatible fix.
+- The newest minor release receives fixes. Older releases remain downloadable but do not
+  have separate maintenance branches.
+- A feature is normally announced as deprecated for at least one minor release before
+  removal. An unsafe behavior may be removed sooner.
+- Moving to a new Ubuntu release is a reviewed project change, not an automatic update.
 
-Consumers should evaluate upgrades with `doctor`, `template-diff`, their required pull
-request gates and at least the operations smoke profile before changing the pinned tag.
+Before changing the version used by an existing project, follow
+[Maintaining a generated project](maintenance.md#upgrading-cpp-project-foundation).

@@ -1,184 +1,123 @@
 # C++ Project Foundation
 
-[English](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.md) |
-[简体中文](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.zh-CN.md)
+[English](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.md)
 
-`cpp-project-foundation` 是一个由清单驱动的 C++ 服务工程基础设施。它将构建、
-依赖、安全、发布、部署和运维契约抽取为可复用能力，同时不引入任何具体产品的
-服务拓扑。
+用一条命令创建一个可以直接编译的 C++ 服务项目。生成的项目自带示例代码、测试、
+CMake 和 Conan 配置、GitHub Actions、发布打包，以及可选的部署工具。
 
-首个受支持的生产配置有意保持较窄的范围：
+它是一个项目模板和命令行工具，不是应用框架。它不会替你决定业务逻辑、数据库，
+也不会在没有明确命令的情况下自动部署。
 
-- Ubuntu 24.04 x86-64
-- GCC 13、C++20、CMake、Ninja 和 sccache
-- Conan 2.8.1，以及由项目维护的 profile 和 lockfile
-- 每个生成项目包含一个可独立部署的服务
-- 默认使用 GitHub-hosted Actions runner，长时间门禁可按需配置 self-hosted runner
+## 它适合什么项目？
 
-多服务编排、应用协议、数据库、SDK 生成和云平台策略属于扩展点，不是 foundation
-核心中的隐藏假设。
+如果你希望获得下面这些能力，可以使用它：
 
-## 创建项目
+- 新建一个 C++20 服务，并让本机和 GitHub Actions 使用相同的构建方式；
+- 从项目开始就准备好测试、代码格式和常用安全检查；
+- 生成带校验文件和软件清单的发布包；
+- 按需使用部署、回滚、备份和运维记录命令。
 
-使用 `pipx` 安装不可变发布版本，然后通过持续维护的参考模板生成服务：
+正式支持的生产环境是 Ubuntu 24.04 x86-64 和 GCC 13。其他系统可以用来阅读或生成
+项目，但生产构建建议使用受支持的环境。
+
+## 五分钟开始使用
+
+生成项目需要 Python 3.11 或更高版本以及
+[`pipx`](https://pipx.pypa.io/stable/)。编译项目还需要 GCC 13、CMake、Ninja 和 Conan。
+[入门指南](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.zh-CN.md)提供了完整的安装命令。
+
+从 PyPI 安装工具：
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.6.0"
+pipx install "cpp-project-foundation==0.6.0"
+cpp-foundation --help
+```
+
+创建项目。输出目录不能已经存在：
+
+```bash
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
   --output ../order-service
+cd ../order-service
 ```
 
-生成的项目独立维护自己的 `foundation.toml`、Conan 依赖图和 lockfile。启用可复用
-CI workflow 前，应审查 manifest，并针对已批准的依赖图重新生成 lockfile。
-
-## Manifest
-
-`foundation.toml` 是通用平台与应用代码之间的边界。它声明构建目标、发布输入和
-失败即关闭的运维 hook。工具不会猜测服务名称，也不会在观察到失败后自动修改阈值。
-0.6 版本会严格校验该契约：未知字段、类型错误的数组、无效可观测性 URL 和非正数
-hook 超时都会在 `validate` 阶段失败。
-
-```toml
-schema_version = 1
-
-[project]
-name = "order-service"
-version = "0.1.0"
-
-[build]
-target = "order_service"
-test_target = "order_service_tests"
-profile = "conan/profiles/linux-gcc-x64"
-lockfile = "conan/locks/linux-gcc-x64-release.lock"
-
-[release]
-executables = ["build/release/bin/order-service"]
-include = ["deploy"]
-
-[operations]
-activate = ["docker", "compose", "-f", "deploy/docker-compose.yml", "up", "-d"]
-verify = ["sh", "deploy/verify.sh"]
-deactivate = ["docker", "compose", "-f", "deploy/docker-compose.yml", "down"]
-canary = ["bin/order-service", "--check"]
-benchmark = ["bin/order-service", "--benchmark", "200000"]
-```
-
-## 能力等级
-
-### P0：工程与供应链基线
-
-- 隔离的 Conan 2.8.1、显式 remote、profile 和不可变依赖图 lockfile
-- CMake/Ninja/CTest 和 sccache
-- 可复用的 GitHub CI
-- OSV、ASan/UBSan、TSan 和有界 libFuzzer 任务
-- 完整 SHA 固定的 Action、最小权限 token、CODEOWNERS 和分支保护初始化脚本
-- foundation 自身的可复用 workflow 使用不可变语义版本 tag，消费者显式升级平台；
-  所有第三方 Action 固定到完整 SHA
-- 候选提交、runner、构建配置和 lockfile provenance
-- 固定版本的 clang-format、Ruff、ShellCheck 和 actionlint 门禁
-- Clang 18 clang-tidy，高置信度问题按错误处理
-- CI 中所有项目自有 C++ target 执行零告警策略
-
-### P1：不可变发布与部署
-
-- 安全的运行时归档、SHA-256、确定性 payload 摘要、经过验证的 SPDX 2.3 SBOM 和候选
-  provenance
-- GitHub artifact attestation 和不可变 tag 发布
-- 归档路径穿越防护和摘要校验
-- 幂等安装、串行化部署操作、升级、回滚、状态和验证
-- 失败候选清理、自动回滚和显式的中断事务恢复
-- 仅包含运行时的 Dockerfile、加固的 Compose、systemd 和 Prometheus/Grafana 参考配置
-- GCC 13 与 Clang 18 兼容性构建、CodeQL 和覆盖率阈值
-- 针对 Actions、Python 工具和 Docker 基础镜像的 Dependabot 策略
-
-### P2：运维证据
-
-- 只创建不覆盖的证据记录，以及封闭清单、内容寻址的原始摘要
-- 用于异地主机保留的证据包校验
-- 默认使用 age 加密的备份创建、校验和隔离恢复
-- 由应用定义的外部 canary 和固定窗口聚合
-- 有界 smoke、2h 和 8h soak profile
-- 使用显式吞吐与 P99 阈值的重复性能门禁
-- 在 GitHub job summary 中直接呈现运维证据
-- 定时运行 IWYU、cppcheck、Hadolint、Markdown 和 CMake 质量检查
-- 干净构建耗时、发布二进制体积和重复构建摘要预算
-
-## 常用命令
-
-首次检出仓库时，使用 Python 3.11 或更高版本初始化本地开发环境：
+检查生成结果：
 
 ```bash
-python3 scripts/bootstrap_dev.py
-source .venv/bin/activate
+cpp-foundation validate
+cpp-foundation doctor --root .
 ```
 
-```bash
-cpp-foundation --manifest foundation.toml validate
-cpp-foundation --manifest foundation.toml doctor --root .
-cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
-cpp-foundation --manifest foundation.toml doctor --root . --probe-observability
-cpp-foundation --manifest foundation.toml template-diff --root .
-cpp-foundation quality --root . --mode deep --fix
-cpp-foundation quality --root . --mode fast
-cpp-foundation quality --root . --mode deep
-cpp-foundation --manifest foundation.toml package --output-dir dist
-cpp-foundation verify-release --archive dist/project-v0.1.0-linux-x64.tar.gz \
-  --checksum dist/project-v0.1.0-linux-x64.tar.gz.sha256
+`validate` 检查 `foundation.toml` 是否正确；`doctor` 会说明哪些文件和工具已经准备好，
+哪些可选工具还未安装。此时看到“服务尚未编译”的警告是正常的。
 
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
-  install --archive /tmp/project-v0.1.0-linux-x64.tar.gz \
-  --checksum /tmp/project-v0.1.0-linux-x64.tar.gz.sha256
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
-  activate --deployment-id <deployment-id>
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project recover
-```
+接下来请按照[编译并运行第一个项目](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.zh-CN.md#6-编译并运行)操作。
 
-运行本地质量命令前，安装仓库固定版本的质量工具集：
+## 生成了哪些内容？
 
-```bash
-python3 scripts/install_quality_tools.py \
-  --venv .venv/quality --tools-dir .tools
-export PATH="$PWD/.venv/quality/bin:$PWD/.tools/bin:$PWD/.tools/npm/node_modules/.bin:$PATH"
-```
+| 路径 | 用途 |
+| --- | --- |
+| `src/`、`include/` | 示例应用代码，可以逐步替换为自己的代码 |
+| `tests/` | 示例测试，以及后续测试代码的位置 |
+| `CMakeLists.txt` | 编译目标和编译器设置 |
+| `conanfile.py`、`conan/` | 第三方依赖及其固定版本 |
+| `foundation.toml` | 项目名、编译目标、发布文件和运维命令 |
+| `.github/workflows/` | 自动编译、测试、安全检查和发布任务 |
+| `deploy/` | 可选的 Docker Compose 和 systemd 示例 |
+| `quality/` | 检查使用的时间、文件大小和覆盖率限制 |
 
-快速质量门禁用于阻断 pull request。IWYU、cppcheck、文档、Dockerfile 和可复现性
-深度门禁按计划或手动触发运行。分析和覆盖率选项与默认 Release 构建隔离。
+生成目录属于你的项目，可以正常修改。工具不会悄悄覆盖业务代码，也不会因为检查失败
+而自动降低标准。
 
-长时间运维门禁默认不启用。普通 pull request 只运行两秒的有界稳定性 smoke。
-所有生成的 workflow 默认使用 GitHub-hosted `ubuntu-24.04` runner，2h profile 也可
-使用该默认值。启用 `overnight-8h` 前，消费项目必须显式配置已授权的 self-hosted
-runner，因为 GitHub-hosted 任务的执行时间上限更短。
+## 最常用的命令
 
-## 生产边界
+以下命令应在生成的项目目录中运行：
 
-- 模板无法配置 GitHub 分支规则、runner group、environment 或 secret。首次提交到
-  `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。脚本针对单维护者
-  默认要求零审批；团队仓库应传入 `--required-approvals 1` 或更高值，并为每个精确检查
-  名称重复传入 `--required-check`。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.6.0` 引用公开的
-  可复用 workflow。
-- 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
-  provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。
-- Conan profile 可以共享，但每个消费项目必须维护自己的依赖图 lockfile。
-- 备份归档默认必须配置 age recipient。明文模式仅供测试使用。
-- 本地证据包会报告 `off_host_copy_verified=false`；必须由另一台主机校验并记录传输。
-- foundation smoke 通过不代表已经满足可用性、容量或高可用目标。
+| 命令 | 使用时机 |
+| --- | --- |
+| `cpp-foundation validate` | 修改 `foundation.toml` 后 |
+| `cpp-foundation doctor --root .` | 配置新电脑或排查项目问题时 |
+| `cpp-foundation quality --root . --mode fast` | 每次提交 pull request 前 |
+| `cpp-foundation template-diff --root .` | 升级 foundation 版本前 |
+| `cpp-foundation package --output-dir dist` | Release 编译成功后 |
+| `cpp-foundation verify-release ...` | 安装或发布归档前 |
 
-独立治理的
-[`cpp-foundation-smoke`](https://github.com/HoneyBury/cpp-foundation-smoke) 仓库在不共享
-本仓库源码树的情况下验证项目生成、PR 门禁、发布 attestation、Compose 运行时和
-operations profile。
+质量工具需要先安装一次；部署和备份命令也需要提前准备。请按照对应指南操作，不建议只
+复制其中一条命令：
 
-Python 发布使用独立权限的 PyPI trusted-publisher workflow。一次性外部身份配置和
-强制 dry-run 参见 [publishing.zh-CN.md](docs/publishing.zh-CN.md)。
+- [第一个项目：安装、编译、测试和运行](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.zh-CN.md)
+- [维护生成的项目](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/maintenance.zh-CN.md)
+- [发布、部署、故障恢复和备份](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.zh-CN.md)
 
-进一步阅读：
-[foundation-contract.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/foundation-contract.md)、
-[compatibility.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.zh-CN.md)、
-[migrations.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.zh-CN.md)、
-[publishing.zh-CN.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/publishing.zh-CN.md)、
-[architecture.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/architecture.md)
-和
-[operations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.md)。
+## 文档中的几个常用词
+
+- **Manifest（项目清单）：** 指 `foundation.toml`，它告诉工具怎样处理当前项目。
+- **Lockfile（依赖锁定文件）：** 记录第三方库的准确版本，让以后使用相同输入编译。
+- **Workflow（自动任务）：** GitHub Actions 中自动运行的任务。
+- **Evidence（执行记录）：** 保存检查实际结果的 JSON 文件或归档。
+- **SBOM（软件清单）：** 发布包内文件和第三方软件的列表。
+
+## 文档入口
+
+[文档导航](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/README.zh-CN.md)按照不同读者整理了内容：
+
+- 初次使用者；
+- 维护生成项目的开发者；
+- 生产环境运维人员；
+- 维护本 foundation 仓库的贡献者。
+
+版本支持范围和升级方法请阅读[兼容性说明](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.zh-CN.md)与
+[迁移指南](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.zh-CN.md)。
+
+## 使用前需要知道的限制
+
+- 生成的监控和部署文件是参考示例。用于生产前，必须检查主机名、存储、凭据和权限。
+- 应用数据、凭据和备份不能放在发布目录中。
+- 通过已有检查不等于已经证明系统具备高可用、足够容量或灾难恢复能力。
+- 八小时长时间检查需要稳定的 self-hosted GitHub Actions runner；短时间检查默认使用
+  GitHub 提供的 runner。
+
+报告安全问题请阅读 [SECURITY.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/SECURITY.md)。修改本仓库请阅读
+[CONTRIBUTING.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/CONTRIBUTING.md)。

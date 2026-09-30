@@ -1,42 +1,77 @@
-# Architecture
+# How the Pieces Fit Together
 
-## Quality pipeline
+[简体中文](architecture.zh-CN.md)
 
-The fast path runs deterministic source checks, GCC/Clang compilation, clang-tidy and
-coverage on pull requests. The security path builds CodeQL manually with the locked Conan
-graph and scans a generated SPDX/PURL dependency inventory. The scheduled deep path runs
-IWYU, cppcheck, Dockerfile/documentation checks and build artifact budgets.
+This page gives maintainers a simple picture of the toolkit. New users can skip it until
+they have built the example in [Getting started](getting-started.md).
 
-All quality settings are repository-owned inputs. Generated projects receive the same
-configuration files and may change budgets explicitly; workflows never derive a weaker
-threshold from an observed result.
+## The normal path
 
 ```text
-generated C++ project
-  foundation.toml
+foundation.toml
       |
-      +-- P0 reusable CI/security workflows
-      |     CMake + Conan lock + CTest + sanitizer + fuzz
-      |
-      +-- P1 release producer
-      |     archive + SHA256 + payload digest + SPDX + provenance + attestation
+      v
+build and test -----> release archive + checksum
       |                         |
-      |                         v
-      |                 deployment manager
-      |            install -> activate -> verify
-      |                         |
-      |                failure -> automatic rollback
-      |                interruption -> explicit recovery
-      |
-      `-- P2 application hooks
-            canary + soak + perf + backup + evidence ledger
+      v                         v
+GitHub checks             install release
+                                |
+                                v
+                         activate and verify
+                                |
+                       failure: restore old release
+                       interruption: run recover
 ```
 
-The manifest is the only shared configuration surface. Generic tooling owns state
-transitions, digests, safe filesystem handling and evidence formats. The application owns
-what constitutes health, business success, performance and protected data.
+`foundation.toml` supplies project-specific names and commands. The Python tool reads that
+file and performs the same general steps for every generated project.
 
-The deployment tree separates immutable releases, deployment records and mutable state:
+## What the toolkit handles
+
+- creating the initial folder and example files;
+- checking that project settings refer to valid files and targets;
+- running fixed source-quality tools;
+- creating and verifying a release archive;
+- recording which source commit and dependencies produced a release;
+- switching between installed releases and keeping transaction records;
+- creating verifiable backup and operation records.
+
+## What the application team handles
+
+- business behavior, APIs and data storage;
+- useful tests and a meaningful health check;
+- dependency choices and lockfile updates;
+- production hosts, credentials and access rules;
+- data migration, capacity, availability and disaster-recovery plans;
+- the final decision to release or roll back.
+
+The boundary is intentional: a generic tool can check that a health command succeeded,
+but only the application team can define what “healthy” really means.
+
+## Automated checks
+
+Pull requests run the common, reasonably fast checks: build, tests, source formatting,
+compiler warnings, selected code analysis and coverage. Slower checks run on a schedule or
+when requested. They examine areas such as Docker files, documentation and repeat builds.
+
+The settings live in the repository. A workflow does not automatically lower a limit after
+a failure.
+
+## Release contents
+
+A release contains only the declared runtime program and files. It also includes:
+
+- a manifest listing every file, size and SHA-256 value;
+- the source commit and build information;
+- an SPDX software inventory;
+- a stable digest of the runtime payload.
+
+The verifier rejects extra files, missing files, changed file modes, unsafe archive paths
+and mismatched checksums.
+
+## Deployment state
+
+The default layout separates immutable releases from mutable transaction records:
 
 ```text
 /opt/<project>/releases/<deployment-id>/
@@ -46,8 +81,8 @@ The deployment tree separates immutable releases, deployment records and mutable
 /var/lib/<project>/transactions/<transaction-id>/record.json
 ```
 
-Deployment commands take an exclusive file lock. Symlink changes are atomic. Failed
-candidate activation runs candidate cleanup, restores the previous pointer and invokes
-the previous activation hook. A started transaction blocks later activation until
-`deploy recover` deactivates the candidate, restores both pointers and reactivates the
-previous release. Transaction records retain the failure and recovery result.
+Only one deployment command can change state at a time. Pointer changes are atomic. If a
+candidate fails its checks, the old release is restored. If the process stops halfway,
+later activation is blocked until an operator runs `deploy recover`.
+
+Application data is deliberately absent from this layout and must be managed separately.

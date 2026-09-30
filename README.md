@@ -1,193 +1,128 @@
 # C++ Project Foundation
 
-[English](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.md) |
 [简体中文](https://github.com/HoneyBury/cpp-project-foundation/blob/main/README.zh-CN.md)
 
-`cpp-project-foundation` is a manifest-driven engineering foundation for C++ services.
-It extracts reusable build, dependency, security, release, deployment and operations
-contracts without importing any product-specific service topology.
+Create a ready-to-build C++ service project with one command. The generated project
+includes sample code, tests, CMake and Conan settings, GitHub Actions, release packaging,
+and optional deployment tools.
 
-The first supported production profile is deliberately narrow:
+This project is a starter kit and command-line tool. It does not decide how your service
+should work, choose a database, or deploy anything without an explicit command.
 
-- Ubuntu 24.04 x86-64
-- GCC 13, C++20, CMake, Ninja and sccache
-- Conan 2.8.1 with project-owned profiles and lockfiles
-- one independently deployable service per generated project
-- GitHub-hosted Actions runners by default, with optional self-hosted runners for long gates
+## Is this for me?
 
-Multi-service orchestration, application protocols, databases, SDK generation and cloud
-platform policy are extension points, not hidden assumptions in the foundation core.
+Use it when you want:
 
-## Create a project
+- a new C++20 service that builds the same way locally and in GitHub Actions;
+- tests, formatting and common safety checks set up from the beginning;
+- a repeatable release package with a checksum and a software inventory;
+- optional commands for deployment, rollback, backup and operational records.
 
-Install an immutable release with `pipx` and generate a service from the maintained
-reference template:
+The supported production setup is Ubuntu 24.04 on x86-64 with GCC 13. You can inspect or
+generate projects on other systems, but production builds should use the supported setup.
+
+## Quick start
+
+Creating a project requires Python 3.11 or newer and
+[`pipx`](https://pipx.pypa.io/stable/). Building it also requires GCC 13, CMake, Ninja and
+Conan. The [step-by-step guide](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.md) includes the installation commands.
+
+Install the tool from PyPI:
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.6.0"
+pipx install "cpp-project-foundation==0.6.0"
+cpp-foundation --help
+```
+
+Create a project. The output directory must not already exist:
+
+```bash
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
   --output ../order-service
+cd ../order-service
 ```
 
-The generated project owns its `foundation.toml`, Conan graph and lockfile. Review the
-manifest, regenerate the lockfile for the approved dependency graph, and then enable the
-reusable CI workflow.
-
-## Manifest
-
-`foundation.toml` is the boundary between the generic platform and application code. It
-declares build targets, release inputs and fail-closed operation hooks. The toolkit never
-guesses service names or rewrites thresholds after observing a failure.
-Version 0.6 validates this contract strictly: unknown fields, incorrectly typed arrays,
-invalid observability URLs and non-positive hook timeouts fail during `validate`.
-
-```toml
-schema_version = 1
-
-[project]
-name = "order-service"
-version = "0.1.0"
-
-[build]
-target = "order_service"
-test_target = "order_service_tests"
-profile = "conan/profiles/linux-gcc-x64"
-lockfile = "conan/locks/linux-gcc-x64-release.lock"
-
-[release]
-executables = ["build/release/bin/order-service"]
-include = ["deploy"]
-
-[operations]
-activate = ["docker", "compose", "-f", "deploy/docker-compose.yml", "up", "-d"]
-verify = ["sh", "deploy/verify.sh"]
-deactivate = ["docker", "compose", "-f", "deploy/docker-compose.yml", "down"]
-canary = ["bin/order-service", "--check"]
-benchmark = ["bin/order-service", "--benchmark", "200000"]
-```
-
-## Capability levels
-
-### P0: engineering and supply-chain baseline
-
-- isolated Conan 2.8.1, explicit remotes, profiles and immutable graph lock
-- CMake/Ninja/CTest and sccache
-- reusable GitHub CI
-- OSV, ASan/UBSan, TSan and bounded libFuzzer jobs
-- full-SHA Action pinning, least-privilege tokens, CODEOWNERS and branch protection bootstrap
-- foundation-owned reusable workflows use an immutable semantic release tag so consumers
-  upgrade the platform explicitly; all third-party Actions remain pinned to full SHAs
-- candidate/runner/configuration/lockfile provenance
-- pinned clang-format, Ruff, ShellCheck and actionlint gates
-- Clang 18 clang-tidy with high-confidence findings treated as errors
-- zero-warning policy for every project-owned C++ target in CI
-
-### P1: immutable release and deployment
-
-- safe runtime archive, SHA-256, deterministic payload digest, validated SPDX 2.3 SBOM
-  and candidate provenance
-- GitHub artifact attestations and immutable tag release
-- archive path traversal and digest verification
-- idempotent install, serialized deployment operations, upgrade, rollback, status and verify
-- failed candidate cleanup, automatic rollback and explicit interrupted-transaction recovery
-- runtime-only Dockerfile, hardened Compose, systemd and Prometheus/Grafana reference files
-- GCC 13 and Clang 18 compatibility builds, CodeQL and coverage thresholds
-- Dependabot policies for Actions, Python tooling and Docker bases
-
-### P2: operations evidence
-
-- create-only evidence records with closed-world, content-addressed raw summaries
-- package verification for off-host retention
-- age-encrypted backup creation, verification and isolated restore
-- application-defined external canary with fixed-window aggregation
-- bounded smoke, 2h and 8h soak profiles
-- repeated performance gates with explicit throughput and P99 thresholds
-- operations evidence rendered directly in the GitHub job summary
-- scheduled IWYU, cppcheck, Hadolint, Markdown and CMake quality checks
-- clean-build time, release binary size and repeat-build digest budgets
-
-## Common commands
-
-On a fresh checkout, initialize the local development environment with Python 3.11 or
-newer:
+Check the generated files:
 
 ```bash
-python3 scripts/bootstrap_dev.py
-source .venv/bin/activate
+cpp-foundation validate
+cpp-foundation doctor --root .
 ```
 
-```bash
-cpp-foundation --manifest foundation.toml validate
-cpp-foundation --manifest foundation.toml doctor --root .
-cpp-foundation --manifest foundation.toml doctor --root . --strict-tools
-cpp-foundation --manifest foundation.toml doctor --root . --probe-observability
-cpp-foundation --manifest foundation.toml template-diff --root .
-cpp-foundation quality --root . --mode deep --fix
-cpp-foundation quality --root . --mode fast
-cpp-foundation quality --root . --mode deep
-cpp-foundation --manifest foundation.toml package --output-dir dist
-cpp-foundation verify-release --archive dist/project-v0.1.0-linux-x64.tar.gz \
-  --checksum dist/project-v0.1.0-linux-x64.tar.gz.sha256
+`validate` checks `foundation.toml`. `doctor` explains which files and tools are ready and
+which optional tools are missing. A warning that the service has not been built yet is
+normal at this point.
 
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
-  install --archive /tmp/project-v0.1.0-linux-x64.tar.gz \
-  --checksum /tmp/project-v0.1.0-linux-x64.tar.gz.sha256
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project \
-  activate --deployment-id <deployment-id>
-sudo cpp-foundation deploy --root /opt/project --state-root /var/lib/project recover
-```
+Continue with [Build and run your first project](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.md#6-build-and-run).
 
-Install the repository-pinned quality toolset before running the local quality commands:
+## What gets created?
 
-```bash
-python3 scripts/install_quality_tools.py \
-  --venv .venv/quality --tools-dir .tools
-export PATH="$PWD/.venv/quality/bin:$PWD/.tools/bin:$PWD/.tools/npm/node_modules/.bin:$PATH"
-```
+| Path | Purpose |
+| --- | --- |
+| `src/`, `include/` | Example application code to replace with your own code |
+| `tests/` | A small test and the place for new tests |
+| `CMakeLists.txt` | Build targets and compiler settings |
+| `conanfile.py`, `conan/` | Third-party dependencies and their fixed versions |
+| `foundation.toml` | Project name, build targets, release files and operation commands |
+| `.github/workflows/` | Automated build, test, security and release jobs |
+| `deploy/` | Optional Docker Compose and systemd examples |
+| `quality/` | Time, size and coverage limits used by checks |
 
-The fast quality gate is required on pull requests. Deep IWYU, cppcheck, documentation,
-Dockerfile and reproducibility gates run on schedule or explicit dispatch. Analysis and
-coverage options are isolated from the default Release build.
+The generated directory is your project. You may edit it normally. The tool never silently
+replaces application code or changes a limit after a failed check.
 
-Long operations are opt-in. Ordinary pull requests run a two-second bounded stability
-smoke. All generated workflows default to GitHub-hosted `ubuntu-24.04` runners. The 2h
-profile can use that default. Before enabling `overnight-8h`, a consuming project must
-explicitly configure an authorized self-hosted runner because GitHub-hosted jobs have a
-shorter execution limit.
+## Commands you will use most
 
-## Production boundaries
+Run these commands from the generated project directory:
 
-- A template cannot configure GitHub branch rules, runner groups, environments or
-  secrets. Use `scripts/bootstrap_github.py --apply` after the first `main` commit. The
-  script defaults to zero approvals for a single maintainer; team repositories should pass
-  `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
-- Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.6.0` release tag.
-- GitHub-hosted attestations run automatically for public repositories. Private consumers
-  still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
-  explicitly enable native attestations.
-- Conan profiles may be shared; lockfiles are owned by each consuming dependency graph.
-- Backup archives require an age recipient by default. Plaintext mode exists only for tests.
-- The local evidence package reports `off_host_copy_verified=false`; a separate host must
-  verify and record the transfer.
-- A successful framework smoke test is not an availability, capacity or HA claim.
+| Command | When to use it |
+| --- | --- |
+| `cpp-foundation validate` | After editing `foundation.toml` |
+| `cpp-foundation doctor --root .` | When setting up a machine or diagnosing a project |
+| `cpp-foundation quality --root . --mode fast` | Before each pull request |
+| `cpp-foundation template-diff --root .` | Before upgrading the foundation version |
+| `cpp-foundation package --output-dir dist` | After a successful release build |
+| `cpp-foundation verify-release ...` | Before installing or publishing a release archive |
 
-The independently governed
-[`cpp-foundation-smoke`](https://github.com/HoneyBury/cpp-foundation-smoke) repository
-exercises generation, pull-request gates, release attestations, Compose runtime and
-operations profiles without sharing this repository's source tree.
+Quality tools have a one-time installation step. Deployment and backup commands also need
+some preparation. Follow the linked guide instead of copying an isolated command:
 
-Python publishing uses a separately permissioned PyPI trusted-publisher workflow. See
-[publishing.md](docs/publishing.md) for the one-time external identity configuration and
-mandatory dry-run.
+- [First project: install, build, test and run](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/getting-started.md)
+- [Maintain a generated project](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/maintenance.md)
+- [Release, deploy, recover and back up](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.md)
 
-See
-[foundation-contract.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/foundation-contract.md),
-[compatibility.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.md),
-[migrations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.md),
-[publishing.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/publishing.md),
-[architecture.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/architecture.md)
-and
-[operations.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/operations.md).
+## A few terms used in the documentation
+
+- **Manifest:** `foundation.toml`, the small file that tells the tool about your project.
+- **Lockfile:** a file that records exact dependency versions so later builds use the same
+  inputs.
+- **Workflow:** an automated GitHub Actions job.
+- **Evidence:** a JSON result or package kept to show what a check actually did.
+- **SBOM:** a list of the files and third-party packages in a release.
+
+## Documentation
+
+Start at the [documentation index](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/README.md), which separates guides by audience:
+
+- new users;
+- people maintaining a generated project;
+- production operators;
+- contributors maintaining this foundation repository.
+
+For version support and upgrades, see [compatibility](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/compatibility.md) and
+[migration notes](https://github.com/HoneyBury/cpp-project-foundation/blob/main/docs/migrations.md).
+
+## Important limits
+
+- Generated monitoring and deployment files are examples. Review host names, storage,
+  credentials and access rules before production use.
+- Application data, credentials and backups must stay outside release directories.
+- Passing the included checks does not by itself prove high availability, capacity or
+  disaster recovery.
+- Long eight-hour checks need a reliable self-hosted GitHub Actions runner. Short checks
+  use GitHub-hosted runners by default.
+
+To report a security issue, follow [SECURITY.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/SECURITY.md). To change this repository,
+follow [CONTRIBUTING.md](https://github.com/HoneyBury/cpp-project-foundation/blob/main/CONTRIBUTING.md).

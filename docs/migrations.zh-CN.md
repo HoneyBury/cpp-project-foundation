@@ -2,19 +2,22 @@
 
 [English](migrations.md)
 
-消费项目升级必须通过 pull request 完成，不能在受保护的默认分支上直接批量替换
-workflow tag。
+本页只适用于已经使用旧 foundation 版本的项目。新项目可以跳过。升级应使用独立的
+pull request，方便审核和撤销模板变化。
 
 ## 升级流程
 
-1. 在隔离环境安装目标 foundation tag。
-2. 运行 `cpp-foundation doctor --root .`，记录确认可接受的告警。
-3. 运行 `cpp-foundation template-diff --root .`，识别 foundation 管理文件的漂移。
-4. 使用相同项目名和版本生成临时项目，选择性应用已审核的变更；不要覆盖应用文件或
-   Conan lockfile。
-5. 将所有 foundation workflow 引用统一修改为同一个目标 tag。
-6. 运行快速 CI 与质量门禁、深度质量、安全和 operations smoke。
-7. 通过分支保护合并，并在下一个生产 tag 前执行 release dry-run。
+1. 阅读当前版本到目标版本之间的所有说明；
+2. 使用 `pipx install --force` 安装目标 CLI 版本；
+3. 运行 `doctor` 和 `template-diff`，这两个命令在修改文件前可以安全执行；
+4. 使用相同项目名和应用版本生成临时项目；
+5. 比较临时项目和真实项目，只复制已审核的变化，不要覆盖应用代码或 Conan lockfile；
+6. 把所有 foundation workflow 引用改为同一个目标 tag；
+7. 运行常规编译、快速检查、完整检查和 operations smoke；
+8. 按项目正常审核流程合并，然后运行 release dry-run。
+
+完整过程和示例命令请参考
+[维护生成的项目](maintenance.zh-CN.md#升级-cpp-project-foundation)。
 
 ## 0.2.1 升级至 0.2.2
 
@@ -74,10 +77,10 @@ workflow tag。
 - Manifest 与 evidence schema 版本仍为 1，无需重写已有数据。
 - 在主机 runbook 中加入 `deploy recover`。中断后遗留的 `started` 事务会阻止激活、
   升级和回滚，直到恢复命令还原事务前的发布版本。
-- Evidence 打包现在采用封闭清单。应删除 evidence 根目录中的未引用文件和链接；发现
-  损坏的内容寻址文件时应调查原因，不能直接覆盖。
-- Release manifest 新增确定性的运行时 payload 摘要。若 provenance 运行上下文或 SPDX
-  创建时间不同，完整归档的字节仍可能不同。
+- Evidence 打包现在只接受记录中引用的文件。应删除 evidence 根目录中的无关文件和
+  链接；发现损坏的内容寻址文件时应调查原因，不能直接覆盖。
+- Release manifest 新增稳定的运行时内容摘要。如果编译任务信息或软件清单创建时间
+  不同，完整归档的字节仍可能不同。
 - `doctor --probe-observability` 会按需对已配置的 health 和 metrics URL 执行 HTTP 探测；
   默认 `doctor` 仍不访问网络。
 - 将所有可复用 workflow 引用更新为 `v0.6.0`，然后运行完整 PR 门禁和 operations
