@@ -38,6 +38,15 @@ def main() -> int:
         ".github/workflows/release.yml",
         ".github/workflows/publish-pypi.yml",
         "examples/hello-service/.github/dependabot.yml",
+        "examples/hello-service/.github/CODEOWNERS",
+        "examples/hello-service/.github/pull_request_template.md",
+        "examples/hello-service/CMakePresets.json",
+        "examples/hello-service/CONTRIBUTING.md",
+        "examples/hello-service/LICENSE",
+        "examples/hello-service/SECURITY.md",
+        "foundation/licenses/Apache-2.0.txt",
+        "foundation/licenses/MIT.txt",
+        "foundation/licenses/proprietary.txt",
         "docs/README.md",
         "docs/README.zh-CN.md",
         "docs/architecture.md",
@@ -145,13 +154,31 @@ def main() -> int:
     manifest = tomllib.loads(
         (ROOT / "examples/hello-service/foundation.toml").read_text(encoding="utf-8")
     )
+    cmake_text = (ROOT / "examples/hello-service/CMakeLists.txt").read_text(
+        encoding="utf-8"
+    )
+    cmake_version = re.search(
+        r"project\(\s*[A-Za-z0-9_]+\s+VERSION\s+([^\s)]+)", cmake_text
+    )
+    conan_text = (ROOT / "examples/hello-service/conanfile.py").read_text(
+        encoding="utf-8"
+    )
+    conan_version = re.search(r'^\s*version\s*=\s*"([^"]+)"', conan_text, re.MULTILINE)
+    if cmake_version is None or conan_version is None:
+        errors.append("reference CMake or Conan version is missing")
     versions = {
         "foundation package": foundation_version,
         "Python project": pyproject["project"]["version"],
         "reference manifest": manifest["project"]["version"],
     }
+    if cmake_version is not None:
+        versions["reference CMake project"] = cmake_version.group(1)
+    if conan_version is not None:
+        versions["reference Conan project"] = conan_version.group(1)
     if len(set(versions.values())) != 1:
         errors.append(f"foundation versions are inconsistent: {versions}")
+    if "LICENSE" not in manifest["release"].get("include", []):
+        errors.append("reference release does not include its LICENSE")
     for lockfile in sorted(ROOT.glob("**/conan/locks/*.lock")):
         lock = json.loads(lockfile.read_text(encoding="utf-8"))
         for reference in lock.get("requires", []):

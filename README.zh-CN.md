@@ -29,7 +29,7 @@ CMake 和 Conan 配置、GitHub Actions、发布打包，以及可选的部署�
 从 PyPI 安装工具：
 
 ```bash
-pipx install "cpp-project-foundation==0.6.0"
+pipx install "cpp-project-foundation==0.7.0"
 cpp-foundation --help
 ```
 
@@ -39,6 +39,7 @@ cpp-foundation --help
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output ../order-service
 cd ../order-service
 ```
@@ -61,12 +62,13 @@ cpp-foundation doctor --root .
 | --- | --- |
 | `src/`、`include/` | 示例应用代码，可以逐步替换为自己的代码 |
 | `tests/` | 示例测试，以及后续测试代码的位置 |
-| `CMakeLists.txt` | 编译目标和编译器设置 |
+| `CMakeLists.txt`、`CMakePresets.json` | 编译目标和简短、可重复的命令 |
 | `conanfile.py`、`conan/` | 第三方依赖及其固定版本 |
 | `foundation.toml` | 项目名、编译目标、发布文件和运维命令 |
 | `.github/workflows/` | 自动编译、测试、安全检查和发布任务 |
 | `deploy/` | 可选的 Docker Compose 和 systemd 示例 |
 | `quality/` | 检查使用的时间、文件大小和覆盖率限制 |
+| `LICENSE`、`SECURITY.md` | 选择的许可证和私下报告安全问题的方法 |
 
 生成目录属于你的项目，可以正常修改。工具不会悄悄覆盖业务代码，也不会因为检查失败
 而自动降低标准。

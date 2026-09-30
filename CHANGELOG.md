@@ -3,6 +3,31 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## 0.7.0 - 2026-09-30
+
+### Added
+
+- Added explicit MIT, Apache-2.0, proprietary and no-license choices when generating a
+  project.
+- Added CMake presets, contribution and security guides, a pull request template, a
+  CODEOWNERS starter and the branch-protection helper to generated projects.
+- Added a full wheel-to-generated-project compile, test, health-check, package and release
+  verification path to CI.
+
+### Changed
+
+- Project names now reject C++ keywords and malformed DNS-style slugs, and versions use
+  full Semantic Versioning validation.
+- Generated CI and quality workflows also run after updates reach `main`.
+- Template drift reports now cover workflows, deployment examples and project governance
+  files in addition to quality settings.
+- Generated documentation links are fixed to the matching foundation release.
+
+### Fixed
+
+- Container health checks now connect to the running service and verify `/health` instead
+  of only starting a second process that always reported success.
+
 ## 0.6.0 - 2026-09-30
 
 ### Added

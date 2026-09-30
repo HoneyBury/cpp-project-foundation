@@ -118,6 +118,7 @@ cpp-foundation template-diff --root .
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output /tmp/order-service-new-template
 ```
 
@@ -126,7 +127,7 @@ cpp-foundation init \
 
 ## 保持 GitHub Actions 正常工作
 
-- 所有 foundation workflow 应使用同一个版本，例如 `v0.6.0`；
+- 所有 foundation workflow 应使用同一个版本，例如 `v0.7.0`；
 - 第三方 Action 应继续固定到模板提供的完整提交值；
 - 像普通代码变更一样审核 Dependabot pull request，不要一次性合并所有更新；
 - 重新运行失败任务前先调查原因，连续重试可能掩盖不稳定测试；

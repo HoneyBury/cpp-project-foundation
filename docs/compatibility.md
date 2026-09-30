@@ -7,7 +7,7 @@ for each part of a generated project.
 
 ## Regularly tested setup
 
-The 0.6 release line supports this production setup:
+The 0.7 release line supports this production setup:
 
 | Part | Supported version |
 | --- | --- |

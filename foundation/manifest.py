@@ -11,8 +11,47 @@ from urllib.parse import urlsplit
 
 from .common import FoundationError, relative_path
 
-NAME_RE = re.compile(r"[a-z][a-z0-9-]{1,62}\Z")
-VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
+NAME_RE = re.compile(r"[a-z](?:[a-z0-9]|-(?=[a-z0-9])){0,62}\Z")
+VERSION_RE = re.compile(
+    r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?\Z"
+)
+
+CXX_KEYWORDS = frozenset(
+    """
+    alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto
+    bitand bitor bool break case catch char char8_t char16_t char32_t class compl
+    concept const consteval constexpr constinit const_cast continue co_await co_return
+    co_yield decltype default delete do double dynamic_cast else enum explicit export
+    extern false float for friend goto if inline int long mutable namespace new noexcept
+    not not_eq nullptr operator or or_eq private protected public reflexpr register
+    reinterpret_cast requires return short signed sizeof static static_assert static_cast
+    struct switch synchronized template this thread_local throw true try typedef typeid
+    typename union unsigned using virtual void volatile wchar_t while xor xor_eq
+    """.split()  # noqa: SIM905 - compact, auditable keyword table
+)
+
+
+def project_identifier(name: str) -> str:
+    """Return the C++ identifier for a valid project name."""
+    if NAME_RE.fullmatch(name) is None:
+        raise FoundationError(
+            "project name must be a lowercase DNS-style slug without repeated or "
+            "trailing hyphens"
+        )
+    identifier = name.replace("-", "_")
+    if identifier in CXX_KEYWORDS:
+        raise FoundationError(
+            f"project name maps to reserved C++ keyword: {identifier}"
+        )
+    return identifier
+
+
+def validate_version(version: str) -> None:
+    if VERSION_RE.fullmatch(version) is None:
+        raise FoundationError("project version must be a valid semantic version")
 
 
 @dataclass(frozen=True)
@@ -119,10 +158,12 @@ def validate_manifest(document: Any, root: Path) -> dict[str, Any]:
     _reject_unknown(release, "release", {"executables", "include"})
     name = project.get("name")
     version = project.get("version")
-    if not isinstance(name, str) or NAME_RE.fullmatch(name) is None:
-        raise FoundationError("project.name must be a lowercase DNS-style slug")
-    if not isinstance(version, str) or VERSION_RE.fullmatch(version) is None:
-        raise FoundationError("project.version must be a semantic version")
+    if not isinstance(name, str):
+        raise FoundationError("project.name must be a string")
+    project_identifier(name)
+    if not isinstance(version, str):
+        raise FoundationError("project.version must be a string")
+    validate_version(version)
     for key in ("target", "test_target", "profile", "lockfile"):
         if not isinstance(build.get(key), str) or not build[key].strip():
             raise FoundationError(f"build.{key} must be a non-empty string")

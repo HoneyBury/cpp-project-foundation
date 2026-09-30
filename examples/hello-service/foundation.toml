@@ -2,7 +2,7 @@ schema_version = 1
 
 [project]
 name = "hello-service"
-version = "0.6.0"
+version = "0.7.0"
 
 [build]
 target = "hello_service"
@@ -13,7 +13,7 @@ lockfile = "conan/locks/linux-gcc-x64-release.lock"
 
 [release]
 executables = ["build/release/bin/hello-service"]
-include = ["deploy"]
+include = ["deploy", "LICENSE"]
 
 [operations]
 activate = ["docker", "compose", "-f", "deploy/docker-compose.yml", "up", "-d", "--remove-orphans"]

@@ -209,6 +209,7 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue(result["overall_pass"])
             manifest = load_manifest(output / "foundation.toml")
             self.assertEqual(manifest.name, "order-service")
+            self.assertIn("LICENSE", manifest.release["include"])
             self.assertIn(
                 "order_service\n    VERSION 1.2.3",
                 (output / "CMakeLists.txt").read_text(),
@@ -232,19 +233,27 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue((output / ".clang-tidy").is_file())
             self.assertTrue((output / ".gitignore").is_file())
             self.assertTrue((output / ".github/dependabot.yml").is_file())
+            self.assertTrue((output / ".github/CODEOWNERS").is_file())
+            self.assertTrue((output / ".github/pull_request_template.md").is_file())
             self.assertTrue((output / "README.md").is_file())
+            self.assertTrue((output / "CONTRIBUTING.md").is_file())
+            self.assertTrue((output / "SECURITY.md").is_file())
+            self.assertTrue((output / "LICENSE").is_file())
+            self.assertTrue((output / "CMakePresets.json").is_file())
             self.assertTrue((output / ".iwyu.imp").is_file())
             self.assertTrue((output / "quality/baseline.json").is_file())
             self.assertTrue((output / "ruff.toml").is_file())
             self.assertTrue((output / "scripts/bootstrap_dev.py").is_file())
+            self.assertTrue((output / "scripts/bootstrap_github.py").is_file())
             self.assertTrue((output / "scripts/install_quality_tools.py").is_file())
             self.assertTrue((output / "deploy/order-service.service").is_file())
             self.assertTrue(
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.6.0", workflow)
+            self.assertIn("@v0.7.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
+            self.assertIn("\n  push:\n", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
             ).read_text(encoding="utf-8")
@@ -264,6 +273,61 @@ class ManifestTests(unittest.TestCase):
                 if path.is_file()
             )
             self.assertNotIn("hello", generated_text.lower())
+
+    def test_scaffold_rejects_unsafe_names_and_validates_semver(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            for project_name in ("class", "bad-", "bad--name", "UPPER"):
+                with (
+                    self.subTest(project_name=project_name),
+                    self.assertRaises(FoundationError),
+                ):
+                    initialize_project(project_name, "1.0.0", root / project_name)
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                initialize_project(
+                    "valid-service",
+                    "1.0.0-rc.1+build.2",
+                    root / "valid-service",
+                )
+            generated = root / "valid-service"
+            self.assertIn(
+                "VERSION 1.0.0",
+                (generated / "CMakeLists.txt").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                'version = "1.0.0-rc.1+build.2"',
+                (generated / "foundation.toml").read_text(encoding="utf-8"),
+            )
+            with self.assertRaises(FoundationError):
+                initialize_project("invalid-version", "1.0.0-..", root / "invalid")
+
+    def test_scaffold_supports_explicit_license_choices(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            for license_name in ("MIT", "Apache-2.0", "proprietary"):
+                with self.subTest(license_name=license_name):
+                    output = root / license_name
+                    with patch("foundation.scaffold.shutil.which", return_value=None):
+                        result = initialize_project(
+                            "license-service",
+                            "1.0.0",
+                            output,
+                            license_name=license_name,
+                        )
+                    self.assertEqual(result["license"], license_name)
+                    self.assertTrue((output / "LICENSE").is_file())
+                    self.assertIn(
+                        "license-service",
+                        (output / "LICENSE").read_text(encoding="utf-8"),
+                    )
+            output = root / "none"
+            with patch("foundation.scaffold.shutil.which", return_value=None):
+                initialize_project(
+                    "license-service", "1.0.0", output, license_name="none"
+                )
+            self.assertFalse((output / "LICENSE").exists())
+            manifest = load_manifest(output / "foundation.toml")
+            self.assertNotIn("LICENSE", manifest.release["include"])
 
     def test_reusable_workflows_separate_conan_environment_and_profiles(self) -> None:
         ci = Path(".github/workflows/reusable-cpp-ci.yml").read_text(encoding="utf-8")
@@ -375,8 +439,12 @@ class ManifestTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with patch("foundation.scaffold.shutil.which", return_value=None):
-                consumer_owned = compare_template(output, Path("foundation.toml"))
-            self.assertTrue(consumer_owned["overall_pass"])
+                workflow_drift = compare_template(output, Path("foundation.toml"))
+            self.assertFalse(workflow_drift["overall_pass"])
+            self.assertIn(
+                {"path": ".github/workflows/ci.yml", "status": "modified"},
+                workflow_drift["changes"],
+            )
 
             (output / ".clang-format").write_text("BasedOnStyle: LLVM\n")
             with patch("foundation.scaffold.shutil.which", return_value=None):

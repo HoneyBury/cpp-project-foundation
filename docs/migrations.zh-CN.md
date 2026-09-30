@@ -85,3 +85,20 @@ pull request，方便审核和撤销模板变化。
   默认 `doctor` 仍不访问网络。
 - 将所有可复用 workflow 引用更新为 `v0.6.0`，然后运行完整 PR 门禁和 operations
   smoke profile。
+
+## 0.6.0 升级至 0.7.0
+
+- Manifest schema 仍为 1。项目版本现在按照完整的 Semantic Versioning 规则检查，转换后
+  会成为 C++ 关键字的项目名会被拒绝。已有的有效项目不需要重写 manifest。
+- 从临时生成的 0.7.0 项目中审阅并加入 `CMakePresets.json`、`CONTRIBUTING.md`、
+  `SECURITY.md`、CODEOWNERS 起始文件、pull request 模板和
+  `scripts/bootstrap_github.py`。
+- 为生成项目的 `ci.yml` 和 `quality.yml` 增加 `main` 分支的 `push` 触发。GitHub 报告
+  准确的检查名称后，再单独配置分支保护。
+- 审阅并采用真正访问运行服务的 `--healthcheck` 以及 Docker Compose health check。
+  `--check` 保留为只检查程序本身的 smoke check，`--healthcheck` 用于检查运行中的服务。
+- `template-diff` 现在会报告 workflow、部署文件和项目治理文件的变化。报告的变化可能
+  是项目有意做出的修改，应人工检查，不能直接覆盖。
+- 选择并审核项目许可证；已有项目不会被自动重新授权。
+- 将所有可复用 workflow 引用更新为 `v0.7.0`，然后运行完整 PR 门禁、生成项目编译和
+  operations smoke profile。

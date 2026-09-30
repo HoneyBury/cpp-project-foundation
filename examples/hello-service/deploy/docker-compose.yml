@@ -12,7 +12,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
-      test: ["CMD", "/usr/local/bin/hello-service", "--check"]
+      test: ["CMD", "/usr/local/bin/hello-service", "--healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 5

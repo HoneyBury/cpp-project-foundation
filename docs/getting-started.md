@@ -31,7 +31,7 @@ Python must be 3.11 or newer. The supported compiler is GCC 13.
 ## 2. Install the project generator
 
 ```bash
-pipx install "cpp-project-foundation==0.6.0"
+pipx install "cpp-project-foundation==0.7.0"
 cpp-foundation --help
 ```
 
@@ -39,18 +39,24 @@ cpp-foundation --help
 older installed version, use:
 
 ```bash
-pipx install --force "cpp-project-foundation==0.6.0"
+pipx install --force "cpp-project-foundation==0.7.0"
 ```
 
 ## 3. Create a project
 
 Project names use lowercase letters, numbers and hyphens. The output directory must not
-already exist.
+already exist. `--license` accepts `MIT`, `Apache-2.0`, `proprietary` or `none`; review the
+generated `LICENSE` with your team before publishing the project.
+
+Pre-release versions such as `1.2.0-rc.1+build.5` are accepted. CMake receives their
+numeric `1.2.0` part because its `project(VERSION)` field only supports numbers; the full
+version remains in `foundation.toml`, Conan metadata and release filenames.
 
 ```bash
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
+  --license MIT \
   --output ../order-service
 cd ../order-service
 ```
@@ -109,17 +115,12 @@ conan install . \
   --build=missing
 ```
 
-Configure and build the example program and its test:
+Configure and build the example program and its test with the included CMake presets:
 
 ```bash
-cmake -S . -B build/release -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DENABLE_TESTING=ON \
-  -DFOUNDATION_WARNINGS_AS_ERRORS=ON \
-  -DCMAKE_TOOLCHAIN_FILE=build/conan/build/Release/generators/conan_toolchain.cmake
-cmake --build build/release --parallel \
-  --target order_service order_service_tests
-ctest --test-dir build/release --output-on-failure
+cmake --preset release
+cmake --build --preset release --target order_service order_service_tests
+ctest --preset release
 ```
 
 Run the service's built-in check:
@@ -163,7 +164,16 @@ git commit -m "chore: create order service"
 
 After pushing the project to GitHub, its files under `.github/workflows/` run the same main
 build and checks automatically. Repository rules, secrets and production environments are
-not created by the template; configure them separately for your organization.
+not created automatically. The generated helper prints a branch-protection policy before
+it changes anything. After the first pull request reports its exact check names, review and
+apply the policy with your repository name and those checks:
+
+```bash
+python3 scripts/bootstrap_github.py \
+  --repository your-org/order-service \
+  --required-check "check name reported by GitHub"
+# Add --apply only after reviewing the printed policy.
+```
 
 ## Common first-time problems
 

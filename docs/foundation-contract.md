@@ -8,7 +8,7 @@ operation commands.
 
 ## Supported setup
 
-Version 0.6 is tested for this production setup:
+Version 0.7 is tested for this production setup:
 
 - Ubuntu 24.04 on x86-64;
 - C++20 with GCC 13;

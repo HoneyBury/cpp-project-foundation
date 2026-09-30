@@ -26,7 +26,7 @@ from .quality import run_quality
 from .release import package_release, verify_release
 from .reporting import render_operations_report
 from .sbom import conan_lock_to_spdx
-from .scaffold import initialize_project
+from .scaffold import LICENSE_CHOICES, initialize_project
 from .template_diff import compare_template
 
 
@@ -61,6 +61,13 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--name", required=True)
     init.add_argument("--version", default="0.1.0")
     init.add_argument("--output", type=Path, required=True)
+    init.add_argument(
+        "--license",
+        dest="license_name",
+        choices=LICENSE_CHOICES,
+        default="MIT",
+        help="license for the generated project (default: MIT)",
+    )
 
     sub.add_parser("validate")
     doctor = sub.add_parser("doctor")
@@ -172,7 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def execute(args: argparse.Namespace) -> Any:
     if args.command == "init":
-        return initialize_project(args.name, args.version, args.output)
+        return initialize_project(
+            args.name,
+            args.version,
+            args.output,
+            license_name=args.license_name,
+        )
     if args.command == "validate":
         manifest = _manifest(args)
         return {"schema_version": 1, "overall_pass": True, "project": manifest.name}
