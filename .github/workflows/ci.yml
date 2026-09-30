@@ -159,7 +159,8 @@ jobs:
           git config user.email "foundation-ci@example.invalid"
           git add .
           git commit -qm "generated project"
-          export FOUNDATION_CANDIDATE_REVISION="$(git rev-parse HEAD)"
+          FOUNDATION_CANDIDATE_REVISION="$(git rev-parse HEAD)"
+          export FOUNDATION_CANDIDATE_REVISION
           conan install . \
             --profile:host conan/profiles/linux-gcc-x64 \
             --profile:build conan/profiles/linux-gcc-x64 \
