@@ -7,7 +7,7 @@ from typing import Any
 from . import __version__
 from .common import sha256_file
 from .manifest import load_manifest
-from .scaffold import initialize_project
+from .scaffold import initialize_project, resolve_template_asset
 
 MANAGED_PATTERNS = (
     ".clang-format",
@@ -47,7 +47,7 @@ def compare_template(root: Path, manifest_path: Path) -> dict[str, Any]:
         changes: list[dict[str, str]] = []
         for expected in _managed_files(expected_root):
             relative = expected.relative_to(expected_root)
-            current = project_root / relative
+            current = resolve_template_asset(project_root, relative)
             if not current.is_file():
                 changes.append({"path": str(relative), "status": "missing"})
             elif sha256_file(current) != sha256_file(expected):

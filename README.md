@@ -24,7 +24,7 @@ Install an immutable release with `pipx` and generate a service from the maintai
 reference template:
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.4.1"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.5.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -40,6 +40,8 @@ reusable CI workflow.
 `foundation.toml` is the boundary between the generic platform and application code. It
 declares build targets, release inputs and fail-closed operation hooks. The toolkit never
 guesses service names or rewrites thresholds after observing a failure.
+Version 0.5 validates this contract strictly: unknown fields, incorrectly typed arrays,
+invalid observability URLs and non-positive hook timeouts fail during `validate`.
 
 ```toml
 schema_version = 1
@@ -159,7 +161,7 @@ shorter execution limit.
   script defaults to zero approvals for a single maintainer; team repositories should pass
   `--required-approvals 1` or higher and repeat `--required-check` for every exact context.
 - Consumers reference the public reusable workflows through the immutable
-  `HoneyBury/cpp-project-foundation@v0.4.1` release tag.
+  `HoneyBury/cpp-project-foundation@v0.5.0` release tag.
 - GitHub-hosted attestations run automatically for public repositories. Private consumers
   still publish SHA-256, provenance JSON and SPDX; supported enterprise repositories can
   explicitly enable native attestations.

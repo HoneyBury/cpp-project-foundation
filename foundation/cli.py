@@ -91,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_sub = deploy.add_subparsers(dest="deploy_command", required=True)
     install = deploy_sub.add_parser("install")
     install.add_argument("--archive", type=Path, required=True)
-    install.add_argument("--checksum", type=Path)
+    install.add_argument("--checksum", type=Path, required=True)
     for name in ("activate", "upgrade"):
         child = deploy_sub.add_parser(name)
         child.add_argument("--deployment-id", required=True)

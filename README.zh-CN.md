@@ -23,7 +23,7 @@
 使用 `pipx` 安装不可变发布版本，然后通过持续维护的参考模板生成服务：
 
 ```bash
-pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.4.1"
+pipx install "git+https://github.com/HoneyBury/cpp-project-foundation.git@v0.5.0"
 cpp-foundation init \
   --name order-service \
   --version 0.1.0 \
@@ -37,6 +37,8 @@ CI workflow 前，应审查 manifest，并针对已批准的依赖图重新生�
 
 `foundation.toml` 是通用平台与应用代码之间的边界。它声明构建目标、发布输入和
 失败即关闭的运维 hook。工具不会猜测服务名称，也不会在观察到失败后自动修改阈值。
+0.5 版本会严格校验该契约：未知字段、类型错误的数组、无效可观测性 URL 和非正数
+hook 超时都会在 `validate` 阶段失败。
 
 ```toml
 schema_version = 1
@@ -152,7 +154,7 @@ runner，因为 GitHub-hosted 任务的执行时间上限更短。
   `main` 后，使用 `scripts/bootstrap_github.py --apply` 完成仓库侧配置。脚本针对单维护者
   默认要求零审批；团队仓库应传入 `--required-approvals 1` 或更高值，并为每个精确检查
   名称重复传入 `--required-check`。
-- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.4.1` 引用公开的
+- 消费项目通过不可变发布 tag `HoneyBury/cpp-project-foundation@v0.5.0` 引用公开的
   可复用 workflow。
 - 公开仓库自动运行 GitHub-hosted attestation。私有消费项目仍会发布 SHA-256、
   provenance JSON 和 SPDX；受支持的企业仓库可以显式启用原生 attestation。

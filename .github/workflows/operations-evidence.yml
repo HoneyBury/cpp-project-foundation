@@ -43,7 +43,7 @@ jobs:
       - name: Build reference service
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-13 g++-13 ninja-build
+          sudo apt-get install -y age gcc-13 g++-13 ninja-build
           python3 -m pip install "conan==2.8.1" -e .
           conan remote add conancenter https://center2.conan.io --force
           cd examples/hello-service
@@ -81,6 +81,23 @@ jobs:
           cpp-foundation evidence --root runtime/evidence verify
           cpp-foundation evidence --root runtime/evidence package \
             --output "runtime/evidence-package-${GITHUB_RUN_ID}.tar.gz"
+      - name: Exercise encrypted backup and isolated restore
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/foundation-age-key.txt"
+          mkdir -p runtime/backup-source
+          printf 'candidate=%s\n' "$GITHUB_SHA" > runtime/backup-source/state.txt
+          age-keygen -o "$key"
+          recipient=$(age-keygen -y "$key")
+          cpp-foundation backup create --source runtime/backup-source \
+            --output runtime/backup.tar.gz.age --age-recipient "$recipient"
+          cpp-foundation backup verify --archive runtime/backup.tar.gz.age \
+            --summary runtime/backup.tar.gz.age.json --age-identity "$key"
+          cpp-foundation backup restore --archive runtime/backup.tar.gz.age \
+            --summary runtime/backup.tar.gz.age.json \
+            --destination runtime/backup-restored --age-identity "$key"
+          cmp runtime/backup-source/state.txt runtime/backup-restored/state.txt
+          rm -f "$key"
       - name: Upload operations evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

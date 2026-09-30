@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from foundation.build_quality import check_build_artifacts
 from foundation.cli import build_parser
-from foundation.common import FoundationError, atomic_json
+from foundation.common import FoundationError, atomic_json, sha256_file
 from foundation.deployment import DeploymentManager
 from foundation.doctor import run_doctor
 from foundation.evidence import package_evidence, record_evidence, verify_evidence
@@ -149,6 +149,13 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(manifest.name, "hello-service")
         self.assertEqual(manifest.build["target"], "hello_service")
 
+    def test_repository_template_passes_its_own_diagnostics(self) -> None:
+        root = Path("examples/hello-service")
+        doctor = run_doctor(root, Path("foundation.toml"))
+        self.assertTrue(doctor["overall_pass"])
+        comparison = compare_template(root, Path("foundation.toml"))
+        self.assertTrue(comparison["overall_pass"])
+
     def test_manifest_rejects_path_escape(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
@@ -162,6 +169,37 @@ class ManifestTests(unittest.TestCase):
             )
             with self.assertRaises(FoundationError):
                 load_manifest(root / "foundation.toml")
+
+    def test_manifest_rejects_invalid_container_types_and_unknown_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            manifest_path = make_project(root)
+            original = manifest_path.read_text(encoding="utf-8")
+            invalid_documents = (
+                original.replace(
+                    '[release]\nexecutables = ["build/release/bin/sample-service"]',
+                    '[release]\nexecutables = ["build/release/bin/sample-service"]\n'
+                    'include = "deploy"',
+                ),
+                original.replace(
+                    'lockfile = "conan/locks/release.lock"',
+                    'lockfile = "conan/locks/release.lock"\nfuzz_targets = "fuzz"',
+                ),
+                original.replace(
+                    '[project]\nname = "sample-service"',
+                    '[project]\nname = "sample-service"\nunsupported = true',
+                ),
+                original.replace(
+                    "[operations]",
+                    "[operations]\nhook_timeout_seconds = 0",
+                ),
+                original + '\n[observability]\nhealth_url = "file:///tmp/health"\n',
+            )
+            for document in invalid_documents:
+                with self.subTest(document=document):
+                    manifest_path.write_text(document, encoding="utf-8")
+                    with self.assertRaises(FoundationError):
+                        load_manifest(manifest_path)
 
     def test_scaffold_creates_independent_project(self) -> None:
         with tempfile.TemporaryDirectory() as name:
@@ -205,7 +243,7 @@ class ManifestTests(unittest.TestCase):
                 (output / "include/order_service/request_parser.h").is_file()
             )
             workflow = (output / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-            self.assertIn("@v0.4.1", workflow)
+            self.assertIn("@v0.5.0", workflow)
             self.assertNotIn("@v1.2.3", workflow)
             operations_workflow = (
                 output / ".github/workflows/operations.yml"
@@ -271,6 +309,11 @@ class ManifestTests(unittest.TestCase):
                 item["name"]: item["status"] for item in strict["checks"]
             }
             self.assertEqual(strict_statuses["tool:conan"], "fail")
+
+            (output / "quality/baseline.json").unlink()
+            with patch("foundation.doctor.shutil.which", side_effect=available):
+                missing_asset = run_doctor(output, Path("foundation.toml"))
+            self.assertFalse(missing_asset["overall_pass"])
 
     def test_template_diff_detects_foundation_owned_drift(self) -> None:
         with tempfile.TemporaryDirectory() as name:
@@ -384,6 +427,41 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
             with self.assertRaises(FoundationError):
                 verify_release(archive, checksum)
 
+    def test_unlisted_archive_payload_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            archive, _ = self.package(root, "1.0.0")
+            unpacked = root / "unpacked"
+            with tarfile.open(archive, "r:gz") as stream:
+                stream.extractall(unpacked, filter="data")
+            release_root = next(unpacked.iterdir())
+            write(release_root / "unexpected-payload", "not inventoried\n")
+            tampered = root / "tampered.tar.gz"
+            with tarfile.open(tampered, "w:gz") as stream:
+                stream.add(release_root, arcname=release_root.name)
+            checksum = root / "tampered.tar.gz.sha256"
+            checksum.write_text(
+                f"{sha256_file(tampered)}  {tampered.name}\n", encoding="ascii"
+            )
+            with self.assertRaisesRegex(FoundationError, "unexpected file"):
+                verify_release(tampered, checksum)
+
+    def test_duplicate_archive_member_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            archive, _ = self.package(root, "1.0.0")
+            unpacked = root / "unpacked"
+            with tarfile.open(archive, "r:gz") as stream:
+                stream.extractall(unpacked, filter="data")
+            release_root = next(unpacked.iterdir())
+            duplicate = root / "duplicate.tar.gz"
+            with tarfile.open(duplicate, "w:gz") as stream:
+                stream.add(release_root, arcname=release_root.name)
+                payload = release_root / "foundation.toml"
+                stream.add(payload, arcname=f"{release_root.name}/foundation.toml")
+            with self.assertRaisesRegex(FoundationError, "duplicate release"):
+                verify_release(duplicate)
+
     def test_dirty_source_tree_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             root = Path(name) / "source"
@@ -424,6 +502,14 @@ class ReleaseAndDeploymentTests(unittest.TestCase):
             status = manager.status()
             self.assertTrue(status["overall_pass"])
             self.assertEqual(status["current"], first["deployment_id"])
+
+    def test_deployment_install_requires_checksum(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            parent = Path(name)
+            archive, _ = self.package(parent, "1.0.0")
+            manager = DeploymentManager(parent / "opt", parent / "state")
+            with self.assertRaisesRegex(FoundationError, "requires a release checksum"):
+                manager.install(archive)
 
 
 class OperationsTests(unittest.TestCase):

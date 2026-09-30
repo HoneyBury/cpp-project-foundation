@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import math
 import os
 import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .common import FoundationError, relative_path
 
@@ -58,6 +60,30 @@ def _require_table(document: dict[str, Any], key: str) -> dict[str, Any]:
     return value
 
 
+def _reject_unknown(table: dict[str, Any], name: str, allowed: set[str]) -> None:
+    unknown = sorted(set(table) - allowed)
+    if unknown:
+        raise FoundationError(
+            f"{name} contains unsupported fields: {', '.join(unknown)}"
+        )
+
+
+def _string_list(
+    table: dict[str, Any], key: str, *, required: bool = False
+) -> list[str]:
+    value = table.get(key)
+    if value is None and not required:
+        return []
+    if not isinstance(value, list) or (required and not value):
+        qualifier = "a non-empty" if required else "an"
+        raise FoundationError(f"{key} must be {qualifier} array of strings")
+    if not all(isinstance(item, str) and item.strip() for item in value):
+        raise FoundationError(f"{key} must be an array of non-empty strings")
+    if len(value) != len(set(value)):
+        raise FoundationError(f"{key} must not contain duplicate values")
+    return value
+
+
 def _command(table: dict[str, Any], key: str) -> None:
     value = table.get(key, [])
     if not isinstance(value, list) or not all(
@@ -69,9 +95,28 @@ def _command(table: dict[str, Any], key: str) -> None:
 def validate_manifest(document: Any, root: Path) -> dict[str, Any]:
     if not isinstance(document, dict) or document.get("schema_version") != 1:
         raise FoundationError("foundation manifest schema_version must be 1")
+    _reject_unknown(
+        document,
+        "manifest",
+        {
+            "schema_version",
+            "project",
+            "build",
+            "release",
+            "operations",
+            "observability",
+        },
+    )
     project = _require_table(document, "project")
     build = _require_table(document, "build")
     release = _require_table(document, "release")
+    _reject_unknown(project, "project", {"name", "version"})
+    _reject_unknown(
+        build,
+        "build",
+        {"target", "test_target", "profile", "lockfile", "fuzz_targets"},
+    )
+    _reject_unknown(release, "release", {"executables", "include"})
     name = project.get("name")
     version = project.get("version")
     if not isinstance(name, str) or NAME_RE.fullmatch(name) is None:
@@ -83,21 +128,64 @@ def validate_manifest(document: Any, root: Path) -> dict[str, Any]:
             raise FoundationError(f"build.{key} must be a non-empty string")
     relative_path(root, str(build["profile"]), must_exist=True)
     relative_path(root, str(build["lockfile"]), must_exist=True)
-    executables = release.get("executables")
-    if not isinstance(executables, list) or not executables:
-        raise FoundationError("release.executables must contain at least one path")
-    for value in [*executables, *release.get("include", [])]:
-        if not isinstance(value, str) or not value.strip():
-            raise FoundationError("release paths must be non-empty strings")
+    _string_list(build, "fuzz_targets")
+    executables = _string_list(release, "executables", required=True)
+    includes = _string_list(release, "include")
+    for value in [*executables, *includes]:
         relative_path(root, value)
     operations = document.get("operations", {})
     if not isinstance(operations, dict):
         raise FoundationError("operations must be a table")
+    _reject_unknown(
+        operations,
+        "operations",
+        {
+            "activate",
+            "verify",
+            "deactivate",
+            "canary",
+            "benchmark",
+            "hook_timeout_seconds",
+        },
+    )
     for key in ("activate", "verify", "deactivate", "canary", "benchmark"):
         _command(operations, key)
     if not operations.get("verify"):
         raise FoundationError(
             "operations.verify must define a fail-closed verification hook"
+        )
+    hook_timeout = operations.get("hook_timeout_seconds", 300)
+    if (
+        isinstance(hook_timeout, bool)
+        or not isinstance(hook_timeout, (int, float))
+        or not math.isfinite(hook_timeout)
+        or hook_timeout <= 0
+    ):
+        raise FoundationError("operations.hook_timeout_seconds must be positive")
+    observability = document.get("observability", {})
+    if not isinstance(observability, dict):
+        raise FoundationError("observability must be a table")
+    _reject_unknown(
+        observability,
+        "observability",
+        {"health_url", "metrics_url", "prometheus_retention_days"},
+    )
+    for key in ("health_url", "metrics_url"):
+        value = observability.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise FoundationError(f"observability.{key} must be a non-empty string")
+        if value is not None:
+            parsed = urlsplit(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise FoundationError(
+                    f"observability.{key} must be an absolute HTTP(S) URL"
+                )
+    retention = observability.get("prometheus_retention_days")
+    if retention is not None and (
+        isinstance(retention, bool) or not isinstance(retention, int) or retention <= 0
+    ):
+        raise FoundationError(
+            "observability.prometheus_retention_days must be a positive integer"
         )
     return document
 

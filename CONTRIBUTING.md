@@ -13,7 +13,9 @@ Run locally:
 python3 scripts/install_quality_tools.py --venv .venv/quality --tools-dir .tools
 export PATH="$PWD/.venv/quality/bin:$PWD/.tools/bin:$PWD/.tools/npm/node_modules/.bin:$PATH"
 cpp-foundation quality --root . --mode fast
-python3 -m unittest discover -s tests -v
+python3 -m pip install -r requirements/test.txt
+python3 -m coverage run -m unittest discover -s tests -v
+python3 -m coverage report
 python3 scripts/check_repository.py
 python3 -m foundation --manifest examples/hello-service/foundation.toml validate
 ```

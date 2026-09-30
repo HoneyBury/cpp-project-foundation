@@ -55,3 +55,17 @@ downloadable wheel checksum from 0.3.0; update foundation workflow and installat
   no manifest or evidence schema migration is required.
 - PyPI publishing is optional and requires the external trusted-publisher configuration in
   [publishing.md](publishing.md). GitHub tag installation remains supported.
+
+## 0.4.0/0.4.1 to 0.5.0
+
+- Manifest schema version remains 1, but validation is now strict. Remove unknown fields
+  and ensure `build.fuzz_targets`, `release.executables`, `release.include` and operation
+  commands are arrays of non-empty strings.
+- `operations.hook_timeout_seconds` must be positive. Observability URLs must be absolute
+  HTTP(S) URLs and `prometheus_retention_days` must be a positive integer.
+- Deployment installation now requires `--checksum`. Transport the generated `.sha256`
+  file separately from the archive and update host automation before upgrading the CLI.
+- Release verification rejects unlisted files, duplicate archive members and executable
+  mode drift. Rebuild release archives with 0.5.0 rather than repacking an older archive.
+- Update every reusable workflow reference to `v0.5.0`, then run `doctor`,
+  `template-diff`, the full PR gates and an operations smoke profile.

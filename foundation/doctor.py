@@ -9,6 +9,7 @@ from typing import Any
 
 from . import __version__
 from .manifest import load_manifest
+from .scaffold import resolve_template_asset
 
 FOUNDATION_REF_RE = re.compile(
     r"HoneyBury/cpp-project-foundation/[^\s@]+@(v\d+\.\d+\.\d+)"
@@ -45,7 +46,9 @@ def run_doctor(
         "quality/baseline.json",
     )
     missing = [
-        value for value in required_files if not (project_root / value).is_file()
+        value
+        for value in required_files
+        if not resolve_template_asset(project_root, Path(value)).is_file()
     ]
     checks.append(
         _check(

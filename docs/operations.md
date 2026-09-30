@@ -3,13 +3,16 @@
 ## Release
 
 Build on an admitted Linux x64 runner and package the exact checked-out candidate. The
-archive verifier rejects checksum mismatch, multiple archive roots, links, absolute paths,
-path traversal, missing files and provenance mismatch.
+archive verifier rejects checksum mismatch, multiple archive roots, duplicate members,
+links, special files, absolute paths, path traversal, missing or unlisted files, executable
+mode changes and provenance mismatch.
 
 ## Deployment
 
 Install is idempotent for the same archive digest. Activation and upgrade are fail-closed:
 the candidate must pass both activate and verify hooks before it becomes verified.
+Install always requires the separately delivered `.sha256` file and verifies and extracts
+one open archive snapshot.
 
 ```bash
 cpp-foundation deploy --root /opt/example --state-root /var/lib/example status
