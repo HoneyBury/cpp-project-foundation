@@ -57,6 +57,20 @@ def _template_sources() -> tuple[Path, Path]:
     raise FoundationError("cpp-service template is unavailable")
 
 
+def resolve_template_asset(project_root: Path, relative: Path) -> Path:
+    """Resolve repository-template overlays without weakening consumer checks."""
+    current = project_root / relative
+    if current.is_file():
+        return current
+    template, quality_root = _template_sources()
+    if (
+        project_root.resolve() == template.resolve()
+        and relative.as_posix() in QUALITY_ASSETS
+    ):
+        return quality_root / relative
+    return current
+
+
 def initialize_project(name: str, version: str, output: Path) -> dict[str, object]:
     if NAME_RE.fullmatch(name) is None:
         raise FoundationError("project name must be a lowercase DNS-style slug")

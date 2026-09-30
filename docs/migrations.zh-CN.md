@@ -54,3 +54,17 @@ workflow tag。
   evidence schema。
 - PyPI 发布是可选能力，需要先完成 [publishing.zh-CN.md](publishing.zh-CN.md) 中的
   trusted-publisher 外部配置；通过 GitHub tag 安装仍然受支持。
+
+## 0.4.0/0.4.1 升级至 0.5.0
+
+- Manifest schema 仍为 1，但验证改为严格模式。删除未知字段，并确保
+  `build.fuzz_targets`、`release.executables`、`release.include` 和运维命令均为
+  非空字符串数组。
+- `operations.hook_timeout_seconds` 必须为正数；可观测性 URL 必须是绝对 HTTP(S)
+  URL，`prometheus_retention_days` 必须为正整数。
+- 部署安装现在必须传入 `--checksum`。升级 CLI 前，应独立传输生成的 `.sha256`
+  文件并更新主机自动化。
+- 发布校验会拒绝未登记文件、重复归档成员和可执行位漂移。请使用 0.5.0 重新构建
+  发布包，不要重新封装旧归档。
+- 将所有可复用 workflow 引用统一更新为 `v0.5.0`，然后执行 `doctor`、
+  `template-diff`、完整 PR 门禁和 operations smoke。

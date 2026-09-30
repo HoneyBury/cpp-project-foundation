@@ -3,6 +3,28 @@
 All notable changes are recorded here. Release tags follow Semantic Versioning while the
 project remains in the `0.x` development lifecycle.
 
+## 0.5.0 - 2026-09-30
+
+### Added
+
+- Added Python 3.11 and 3.12 test jobs with an 80% branch-aware coverage gate.
+- Added regression coverage for strict manifests, unexpected archive payloads, duplicate
+  archive members, required deployment checksums and CLI dispatch.
+
+### Changed
+
+- Manifest schema version 1 now rejects unknown fields, invalid collection types,
+  non-positive hook timeouts and invalid observability settings during validation.
+- Deployment installation now requires a checksum and verifies and extracts the same open
+  archive snapshot.
+- Generated projects and reusable workflows now pin foundation `v0.5.0`.
+
+### Fixed
+
+- Release verification now requires the archive file set, sizes, digests and executable
+  modes to match `release-manifest.json` exactly.
+- Release archives now reject duplicate members and non-file/non-directory member types.
+
 ## 0.4.1 - 2026-09-24
 
 ### Added

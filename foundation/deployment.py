@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import shutil
 import time
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -10,7 +11,7 @@ from typing import Any
 
 from .common import FoundationError, atomic_json, load_json, run_command
 from .manifest import load_manifest
-from .release import extract_verified_release, verify_release
+from .release import extract_verified_release
 
 
 def _now() -> str:
@@ -97,36 +98,44 @@ class DeploymentManager:
         return summary
 
     def install(self, archive: Path, checksum: Path | None = None) -> dict[str, Any]:
-        verification = verify_release(archive, checksum)
-        digest = verification["archive_sha256"]
-        deployment_id = (
-            f"v{verification['version']}-{digest[:12]}-{verification['platform']}"
-        )
-        deployment = self.deployments / deployment_id
-        if deployment.exists():
-            existing = load_json(deployment / "record.json")
-            if existing.get("archive_sha256") != digest:
-                raise FoundationError(
-                    "existing deployment id has a different archive digest"
-                )
-            return {**existing, "idempotent": True}
-        release = self.releases / deployment_id
-        extract_verified_release(archive, release)
-        deployment.mkdir()
-        record = {
-            "schema_version": 1,
-            "deployment_id": deployment_id,
-            "project": verification["project"],
-            "version": verification["version"],
-            "platform": verification["platform"],
-            "archive_sha256": digest,
-            "release_path": str(release),
-            "installed_at": _now(),
-            "status": "installed",
-            "protected_state_deleted": False,
-        }
-        atomic_json(deployment / "record.json", record, create_only=True)
-        return record
+        if checksum is None:
+            raise FoundationError("deployment install requires a release checksum")
+        staging = self.releases / f".install-{os.getpid()}-{time.monotonic_ns()}"
+        try:
+            verification = extract_verified_release(archive, staging, checksum)
+            digest = verification["archive_sha256"]
+            deployment_id = (
+                f"v{verification['version']}-{digest[:12]}-{verification['platform']}"
+            )
+            deployment = self.deployments / deployment_id
+            if deployment.exists():
+                existing = load_json(deployment / "record.json")
+                if existing.get("archive_sha256") != digest:
+                    raise FoundationError(
+                        "existing deployment id has a different archive digest"
+                    )
+                return {**existing, "idempotent": True}
+            release = self.releases / deployment_id
+            if release.exists():
+                raise FoundationError(f"release path already exists: {release}")
+            os.replace(staging, release)
+            deployment.mkdir()
+            record = {
+                "schema_version": 1,
+                "deployment_id": deployment_id,
+                "project": verification["project"],
+                "version": verification["version"],
+                "platform": verification["platform"],
+                "archive_sha256": digest,
+                "release_path": str(release),
+                "installed_at": _now(),
+                "status": "installed",
+                "protected_state_deleted": False,
+            }
+            atomic_json(deployment / "record.json", record, create_only=True)
+            return record
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
 
     def _transaction(
         self, operation: str, payload: dict[str, Any]

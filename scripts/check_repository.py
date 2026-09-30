@@ -22,6 +22,7 @@ def main() -> int:
     required = [
         ".clang-format",
         ".clang-tidy",
+        ".coveragerc",
         ".editorconfig",
         ".github/CODEOWNERS",
         ".github/dependabot.yml",
@@ -44,6 +45,7 @@ def main() -> int:
         "quality/npm/package.json",
         "quality/tools.json",
         "requirements/quality.txt",
+        "requirements/test.txt",
         "ruff.toml",
     ]
     for value in required:
@@ -99,11 +101,19 @@ def main() -> int:
             errors.append(
                 f"Python build dependency is not exactly pinned: {requirement}"
             )
-    for requirement in (
-        (ROOT / "requirements/quality.txt").read_text(encoding="utf-8").splitlines()
-    ):
-        if requirement and not requirement.startswith("#") and "==" not in requirement:
-            errors.append(f"quality dependency is not exactly pinned: {requirement}")
+    for requirements_file in ("requirements/quality.txt", "requirements/test.txt"):
+        for requirement in (
+            (ROOT / requirements_file).read_text(encoding="utf-8").splitlines()
+        ):
+            if (
+                requirement
+                and not requirement.startswith("#")
+                and "==" not in requirement
+            ):
+                errors.append(
+                    f"dependency is not exactly pinned in {requirements_file}: "
+                    f"{requirement}"
+                )
     npm_package = json.loads(
         (ROOT / "quality/npm/package.json").read_text(encoding="utf-8")
     )

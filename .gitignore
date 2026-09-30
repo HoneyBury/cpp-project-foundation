@@ -4,6 +4,7 @@
 .conan2/
 .sccache/
 .tools/
+.coverage
 build/
 dist/
 runtime/

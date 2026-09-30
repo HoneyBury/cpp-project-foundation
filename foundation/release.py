@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import platform as host_platform
 import re
@@ -7,8 +8,8 @@ import shutil
 import tarfile
 import tempfile
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePosixPath
+from typing import Any, BinaryIO
 from urllib.parse import quote
 
 from . import __version__
@@ -244,12 +245,24 @@ def package_release(
 def _safe_members(stream: tarfile.TarFile) -> list[tarfile.TarInfo]:
     members = stream.getmembers()
     roots: set[str] = set()
+    names: set[str] = set()
     for member in members:
-        path = Path(member.name)
-        if path.is_absolute() or ".." in path.parts or member.issym() or member.islnk():
+        path = PurePosixPath(member.name)
+        normalized = path.as_posix()
+        if (
+            not path.parts
+            or normalized in {"", "."}
+            or path.is_absolute()
+            or ".." in path.parts
+            or member.issym()
+            or member.islnk()
+            or not (member.isdir() or member.isfile())
+        ):
             raise FoundationError(f"unsafe release archive member: {member.name}")
-        if path.parts:
-            roots.add(path.parts[0])
+        if normalized in names:
+            raise FoundationError(f"duplicate release archive member: {member.name}")
+        names.add(normalized)
+        roots.add(path.parts[0])
     if len(roots) != 1:
         raise FoundationError(
             "release archive must contain exactly one top-level directory"
@@ -257,63 +270,139 @@ def _safe_members(stream: tarfile.TarFile) -> list[tarfile.TarInfo]:
     return members
 
 
-def verify_release(archive: Path, checksum: Path | None = None) -> dict[str, Any]:
-    if not archive.is_file():
-        raise FoundationError(f"release archive not found: {archive}")
-    digest = sha256_file(archive)
+def _stream_digest(stream: BinaryIO) -> str:
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+        digest.update(chunk)
+    stream.seek(0)
+    return digest.hexdigest()
+
+
+def _validate_checksum(archive: Path, checksum: Path | None, digest: str) -> None:
     if checksum is not None:
         fields = checksum.read_text(encoding="ascii").strip().split()
         if len(fields) != 2 or fields[0] != digest or fields[1] != archive.name:
             raise FoundationError("release checksum does not match archive")
-    with tempfile.TemporaryDirectory(prefix="cpp-foundation-verify-") as temporary_name:
-        temporary = Path(temporary_name)
-        with tarfile.open(archive, "r:gz") as stream:
-            members = _safe_members(stream)
-            stream.extractall(temporary, members=members, filter="data")
-        roots = list(temporary.iterdir())
-        root = roots[0]
-        release_manifest = load_json(root / "release-manifest.json")
-        errors = []
-        for item in release_manifest.get("files", []):
-            path = relative_path(root, str(item.get("path", "")), must_exist=True)
-            if path.stat().st_size != item.get("size_bytes"):
-                errors.append(f"size mismatch: {item.get('path')}")
-            if sha256_file(path) != item.get("sha256"):
-                errors.append(f"digest mismatch: {item.get('path')}")
-        provenance = release_manifest.get("provenance", {})
+
+
+def _validate_release_root(root: Path, archive: Path, digest: str) -> dict[str, Any]:
+    release_manifest = load_json(root / "release-manifest.json")
+    if not isinstance(release_manifest, dict):
+        raise FoundationError("release manifest must be a JSON object")
+    if release_manifest.get("schema_version") != 1:
+        raise FoundationError("release manifest schema_version must be 1")
+    for key in ("project", "version", "platform", "configuration"):
+        value = release_manifest.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise FoundationError(f"release manifest {key} must be a non-empty string")
+    files = release_manifest.get("files")
+    if not isinstance(files, list):
+        raise FoundationError("release manifest files must be an array")
+
+    expected: dict[str, dict[str, Any]] = {}
+    required_fields = {"path", "size_bytes", "sha256", "executable"}
+    for item in files:
+        if not isinstance(item, dict) or set(item) != required_fields:
+            raise FoundationError("release manifest contains an invalid file record")
+        relative = item["path"]
+        if not isinstance(relative, str) or not relative.strip():
+            raise FoundationError("release manifest file path must be non-empty")
+        if relative == "release-manifest.json" or relative in expected:
+            raise FoundationError(f"duplicate or reserved release path: {relative}")
+        if (
+            isinstance(item["size_bytes"], bool)
+            or not isinstance(item["size_bytes"], int)
+            or item["size_bytes"] < 0
+            or not isinstance(item["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) is None
+            or not isinstance(item["executable"], bool)
+        ):
+            raise FoundationError(f"invalid release metadata for: {relative}")
+        expected[relative] = item
+
+    actual = {
+        item["path"]: item
+        for item in _inventory(root, excluded={"release-manifest.json"})
+    }
+    missing = sorted(set(expected) - set(actual))
+    unexpected = sorted(set(actual) - set(expected))
+    errors = [*(f"missing file: {value}" for value in missing)]
+    errors.extend(f"unexpected file: {value}" for value in unexpected)
+    for relative in sorted(set(expected) & set(actual)):
+        recorded = expected[relative]
+        observed = actual[relative]
+        if observed["size_bytes"] != recorded["size_bytes"]:
+            errors.append(f"size mismatch: {relative}")
+        if observed["sha256"] != recorded["sha256"]:
+            errors.append(f"digest mismatch: {relative}")
+        if observed["executable"] != recorded["executable"]:
+            errors.append(f"executable mode mismatch: {relative}")
+
+    provenance = release_manifest.get("provenance")
+    if not isinstance(provenance, dict):
+        errors.append("release provenance must be an object")
+    else:
         if provenance.get("revision_matches_checkout") is not True:
             errors.append(
                 "release provenance is not bound to the checked-out candidate"
             )
         if provenance.get("source_tree_clean") is not True:
             errors.append("release provenance was produced from a dirty source tree")
-        if errors:
-            raise FoundationError("; ".join(errors))
-        return {
-            "schema_version": 1,
-            "overall_pass": True,
-            "archive": str(archive),
-            "archive_sha256": digest,
-            "project": release_manifest.get("project"),
-            "version": release_manifest.get("version"),
-            "platform": release_manifest.get("platform"),
-            "file_count": len(release_manifest.get("files", [])),
-        }
+    if errors:
+        raise FoundationError("; ".join(errors))
+    return {
+        "schema_version": 1,
+        "overall_pass": True,
+        "archive": str(archive),
+        "archive_sha256": digest,
+        "project": release_manifest["project"],
+        "version": release_manifest["version"],
+        "platform": release_manifest["platform"],
+        "file_count": len(files),
+    }
 
 
-def extract_verified_release(archive: Path, destination: Path) -> Path:
-    if destination.exists():
-        raise FoundationError(f"destination already exists: {destination}")
-    with tarfile.open(archive, "r:gz") as stream:
-        members = _safe_members(stream)
-        root_name = Path(members[0].name).parts[0]
+def _verify_and_extract(
+    archive: Path, checksum: Path | None, destination: Path | None
+) -> dict[str, Any]:
+    if not archive.is_file():
+        raise FoundationError(f"release archive not found: {archive}")
+    if destination is not None:
+        if destination.exists():
+            raise FoundationError(f"destination already exists: {destination}")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary = destination.parent / f".{destination.name}.extract-{os.getpid()}"
-        shutil.rmtree(temporary, ignore_errors=True)
-        temporary.mkdir()
-        try:
-            stream.extractall(temporary, members=members, filter="data")
-            shutil.move(str(temporary / root_name), destination)
-        finally:
-            shutil.rmtree(temporary, ignore_errors=True)
-    return destination
+    temporary_parent = destination.parent if destination is not None else None
+    try:
+        with (
+            archive.open("rb") as source,
+            tempfile.TemporaryDirectory(
+                prefix="cpp-foundation-verify-", dir=temporary_parent
+            ) as temporary_name,
+        ):
+            digest = _stream_digest(source)
+            _validate_checksum(archive, checksum, digest)
+            temporary = Path(temporary_name)
+            with tarfile.open(fileobj=source, mode="r:gz") as tar_stream:
+                members = _safe_members(tar_stream)
+                tar_stream.extractall(temporary, members=members, filter="data")
+            roots = list(temporary.iterdir())
+            if len(roots) != 1 or not roots[0].is_dir():
+                raise FoundationError(
+                    "release archive must contain exactly one top-level directory"
+                )
+            verification = _validate_release_root(roots[0], archive, digest)
+            if destination is not None:
+                os.replace(roots[0], destination)
+            return verification
+    except tarfile.TarError as exc:
+        raise FoundationError(f"invalid release archive: {exc}") from exc
+
+
+def verify_release(archive: Path, checksum: Path | None = None) -> dict[str, Any]:
+    return _verify_and_extract(archive, checksum, None)
+
+
+def extract_verified_release(
+    archive: Path, destination: Path, checksum: Path
+) -> dict[str, Any]:
+    return _verify_and_extract(archive, checksum, destination)
